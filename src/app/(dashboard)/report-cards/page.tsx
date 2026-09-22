@@ -1,19 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Modal, Popconfirm, Space, Table, Tag, Typography } from "antd";
+import { Button, Descriptions, Divider, Modal, Popconfirm, Space, Table, Tag, Typography } from "antd";
+import { PrinterOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
 import {
+  classesApi,
   periodsApi,
   reportCardsApi,
+  schoolsApi,
   studentsApi,
   type CreateReportCardPayload,
 } from "@/api/resources";
-import type { Period, ReportCard, ReportCardDetail, ReportCardStatus, Student } from "@/types/models";
+import type { Class, Period, ReportCard, ReportCardDetail, ReportCardStatus, School, Student } from "@/types/models";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
@@ -27,6 +30,8 @@ export default function ReportCardsPage() {
   const [reportCards, setReportCards] = useState<ReportCard[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [periods, setPeriods] = useState<Period[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -49,6 +54,8 @@ export default function ReportCardsPage() {
     loadReportCards();
     studentsApi.list().then(setStudents).catch(() => {});
     periodsApi.list().then(setPeriods).catch(() => {});
+    classesApi.list().then(setClasses).catch(() => {});
+    schoolsApi.list().then(setSchools).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadReportCards is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
@@ -62,6 +69,12 @@ export default function ReportCardsPage() {
     return s ? `${s.first_name} ${s.last_name}` : "—";
   };
   const periodLabel = (id: number) => periods.find((p) => p.id === id)?.label ?? "—";
+  const classLabel = (id: number) => classes.find((c) => c.id === id)?.name ?? "—";
+  const schoolLabel = (studentId: number) => {
+    const student = students.find((s) => s.id === studentId);
+    if (!student) return "—";
+    return schools.find((sc) => sc.id === student.school_id)?.name ?? "—";
+  };
 
   const fields: FormFieldSchema[] = [
     { name: "student_id", label: "Élève", type: "select", required: true, options: studentOptions },
@@ -157,13 +170,41 @@ export default function ReportCardsPage() {
       />
 
       <Modal
-        title={detail ? `Bulletin — ${studentLabel(detail.student_id)}` : "Bulletin"}
+        title="Bulletin scolaire"
         open={!!detail}
         onCancel={() => setDetail(null)}
-        footer={null}
+        width={640}
+        footer={
+          <Button type="primary" icon={<PrinterOutlined />} onClick={() => window.print()}>
+            Imprimer / Exporter en PDF
+          </Button>
+        }
       >
         {detail && (
-          <>
+          <div className="print-area">
+            <div className="text-center mb-4">
+              <Typography.Title level={4} className="!mb-0">
+                {schoolLabel(detail.student_id)}
+              </Typography.Title>
+              <Typography.Text type="secondary">Bulletin scolaire</Typography.Text>
+            </div>
+
+            <Descriptions column={2} size="small" bordered>
+              <Descriptions.Item label="Élève" span={2}>
+                {studentLabel(detail.student_id)}
+              </Descriptions.Item>
+              <Descriptions.Item label="Classe">{classLabel(detail.class_id)}</Descriptions.Item>
+              <Descriptions.Item label="Période">{periodLabel(detail.period_id)}</Descriptions.Item>
+              <Descriptions.Item label="Statut">
+                <Tag color={STATUS_COLORS[detail.status]}>{detail.status}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Généré le">
+                {detail.generated_at ? new Date(detail.generated_at).toLocaleDateString("fr-FR") : "—"}
+              </Descriptions.Item>
+            </Descriptions>
+
+            <Divider className="!my-4" />
+
             <Table<ReportCardDetail["subjects"][number]>
               rowKey={(s) => s.subject_id}
               dataSource={detail.subjects}
@@ -171,13 +212,17 @@ export default function ReportCardsPage() {
               size="small"
               columns={[
                 { title: "Matière", dataIndex: "subject_name" },
-                { title: "Moyenne", dataIndex: "average", render: (v) => (v ?? "—") },
+                { title: "Moyenne / 20", dataIndex: "average", align: "right", render: (v) => (v ?? "—") },
               ]}
             />
-            <Typography.Paragraph className="mt-4 !mb-0">
-              <strong>Moyenne générale :</strong> {detail.overall_average ?? "—"}
-            </Typography.Paragraph>
-          </>
+
+            <div className="flex justify-between items-center mt-4 px-1">
+              <Typography.Text strong>Moyenne générale</Typography.Text>
+              <Typography.Title level={3} className="!mb-0">
+                {detail.overall_average ?? "—"} / 20
+              </Typography.Title>
+            </div>
+          </div>
         )}
       </Modal>
     </>
