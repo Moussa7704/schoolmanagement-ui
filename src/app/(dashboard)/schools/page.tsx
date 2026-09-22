@@ -1,7 +1,120 @@
-import ModuleStub from "@/components/common/ModuleStub";
-import { getNavItem } from "@/lib/navigation";
+"use client";
+
+import { useEffect, useState } from "react";
+import { message } from "antd";
+import type { ColumnsType } from "antd/es/table";
+import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
+import CrudFormDrawer from "@/components/common/CrudFormDrawer";
+import type { FormFieldSchema } from "@/components/common/form-field";
+import { schoolsApi, type CreateSchoolPayload, type UpdateSchoolPayload } from "@/api/resources";
+import type { School } from "@/types/models";
+import { usePermission } from "@/hooks/usePermission";
+import { PERMISSIONS } from "@/lib/permissions";
+import { getErrorMessage } from "@/lib/errors";
+
+const FIELDS: FormFieldSchema[] = [
+  { name: "name", label: "Nom", type: "text", required: true },
+  { name: "address", label: "Adresse", type: "text" },
+  { name: "phone", label: "Téléphone", type: "text" },
+  { name: "email", label: "Email", type: "email" },
+];
 
 export default function SchoolsPage() {
-  const item = getNavItem("schools");
-  return <ModuleStub title={item.label} permission={item.permission} />;
+  const can = usePermission();
+
+  const [schools, setSchools] = useState<School[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editing, setEditing] = useState<School | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const loadSchools = async () => {
+    setLoading(true);
+    try {
+      setSchools(await schoolsApi.list());
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec du chargement des écoles"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch-on-mount, not a render-triggered cascade
+    loadSchools();
+  }, []);
+
+  const openCreate = () => {
+    setEditing(null);
+    setDrawerOpen(true);
+  };
+
+  const openEdit = (record: School) => {
+    setEditing(record);
+    setDrawerOpen(true);
+  };
+
+  const handleSubmit = async (values: CreateSchoolPayload | UpdateSchoolPayload) => {
+    setSubmitting(true);
+    try {
+      if (editing) {
+        await schoolsApi.update(editing.id, values as UpdateSchoolPayload);
+        message.success("École mise à jour");
+      } else {
+        await schoolsApi.create(values as CreateSchoolPayload);
+        message.success("École créée");
+      }
+      setDrawerOpen(false);
+      await loadSchools();
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec de l'enregistrement"));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (record: School) => {
+    try {
+      await schoolsApi.remove(record.id);
+      message.success("École supprimée");
+      await loadSchools();
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec de la suppression"));
+    }
+  };
+
+  const columns: ColumnsType<School> = [
+    { title: "Nom", dataIndex: "name" },
+    { title: "Adresse", dataIndex: "address", render: (v) => v || "—" },
+    { title: "Téléphone", dataIndex: "phone", render: (v) => v || "—" },
+    { title: "Email", dataIndex: "email", render: (v) => v || "—" },
+    buildActionsColumn<School>({
+      onEdit: can(PERMISSIONS.SCHOOLS_UPDATE) ? openEdit : undefined,
+      onDelete: can(PERMISSIONS.SCHOOLS_DELETE) ? handleDelete : undefined,
+    }),
+  ];
+
+  return (
+    <>
+      <CrudTable<School>
+        title="Écoles"
+        data={schools}
+        loading={loading}
+        rowKey={(r) => r.id}
+        columns={columns}
+        onCreate={openCreate}
+        canCreate={can(PERMISSIONS.SCHOOLS_CREATE)}
+      />
+
+      <CrudFormDrawer<CreateSchoolPayload | UpdateSchoolPayload>
+        open={drawerOpen}
+        title={editing ? "Modifier l'école" : "Nouvelle école"}
+        fields={FIELDS}
+        initialValues={editing ?? undefined}
+        submitting={submitting}
+        onClose={() => setDrawerOpen(false)}
+        onSubmit={handleSubmit}
+      />
+    </>
+  );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Button, DatePicker, Drawer, Form, Input, Select, Space } from "antd";
+import { Button, DatePicker, Drawer, Form, Input, InputNumber, Select, Space, Switch } from "antd";
 import dayjs from "dayjs";
 import type { FormFieldSchema } from "./form-field";
 
@@ -75,16 +75,21 @@ export default function CrudFormDrawer<TValues extends object>({
             key={field.name}
             name={field.name}
             label={field.label}
+            valuePropName={field.type === "switch" ? "checked" : "value"}
             rules={field.rules ?? (field.required ? [{ required: true, message: `${field.label} est requis` }] : [])}
           >
             {field.type === "select" ? (
               <Select options={field.options} placeholder={field.placeholder} allowClear />
+            ) : field.type === "number" ? (
+              <InputNumber className="w-full" placeholder={field.placeholder} />
             ) : field.type === "date" ? (
               <DatePicker className="w-full" placeholder={field.placeholder} />
             ) : field.type === "textarea" ? (
               <Input.TextArea placeholder={field.placeholder} />
             ) : field.type === "password" ? (
               <Input.Password placeholder={field.placeholder} autoComplete="new-password" />
+            ) : field.type === "switch" ? (
+              <Switch />
             ) : (
               <Input type={field.type === "email" ? "email" : "text"} placeholder={field.placeholder} />
             )}
