@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Modal, Popconfirm, Space, Table, Tag, Typography, message } from "antd";
+import { Button, Modal, Popconfirm, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
@@ -20,6 +21,7 @@ import { getErrorMessage } from "@/lib/errors";
 const STATUS_COLORS: Record<ReportCardStatus, string> = { DRAFT: "gold", VALIDATED: "green" };
 
 export default function ReportCardsPage() {
+  const message = useMessage();
   const can = usePermission();
 
   const [reportCards, setReportCards] = useState<ReportCard[]>([]);
@@ -47,6 +49,7 @@ export default function ReportCardsPage() {
     loadReportCards();
     studentsApi.list().then(setStudents).catch(() => {});
     periodsApi.list().then(setPeriods).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadReportCards is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
   const studentOptions = useMemo(

@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Table, Tag, Typography, message } from "antd";
+import { Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { permissionsApi } from "@/api/resources";
 import type { Permission } from "@/types/models";
+import { useMessage } from "@/hooks/useMessage";
 import { getErrorMessage } from "@/lib/errors";
 
 const resourceOf = (permissionName: string) => permissionName.split(".")[0];
 
 export default function PermissionsPage() {
+  const message = useMessage();
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,6 +27,7 @@ export default function PermissionsPage() {
       }
     };
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-time fetch, `message` is a stable App.useApp() instance
   }, []);
 
   const columns: ColumnsType<Permission> = [

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Form, Input, Space, Tag, message } from "antd";
+import { Button, Card, Form, Input, Space, Tag } from "antd";
 import { useAuth } from "@/hooks/useAuth";
+import { useMessage } from "@/hooks/useMessage";
 import { getErrorMessage } from "@/lib/errors";
 
 interface ProfileFormValues {
@@ -18,6 +19,7 @@ interface PasswordFormValues {
 }
 
 export default function ProfilePage() {
+  const message = useMessage();
   const { user, updateMe, changeMyPassword } = useAuth();
   const [passwordForm] = Form.useForm<PasswordFormValues>();
   const [savingProfile, setSavingProfile] = useState(false);

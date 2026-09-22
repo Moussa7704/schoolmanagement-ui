@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Tag, message } from "antd";
+import { Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
@@ -25,6 +26,7 @@ const RELATIONSHIP_OPTIONS = [
 ];
 
 export default function StudentGuardiansPage() {
+  const message = useMessage();
   const can = usePermission();
 
   const [links, setLinks] = useState<StudentGuardian[]>([]);
@@ -50,6 +52,7 @@ export default function StudentGuardiansPage() {
     loadLinks();
     studentsApi.list().then(setStudents).catch(() => {});
     guardiansApi.list().then(setGuardians).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadLinks is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
   const studentOptions = useMemo(

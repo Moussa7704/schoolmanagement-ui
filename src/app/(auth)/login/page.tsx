@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, Form, Input, Typography, message } from "antd";
+import { Button, Card, Form, Input, Typography } from "antd";
 import { LockOutlined, MailOutlined } from "@ant-design/icons";
 import { useAuth } from "@/hooks/useAuth";
+import { useMessage } from "@/hooks/useMessage";
 import { getErrorMessage } from "@/lib/errors";
 
 interface LoginFormValues {
@@ -13,6 +14,7 @@ interface LoginFormValues {
 }
 
 export default function LoginPage() {
+  const message = useMessage();
   const { login } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);

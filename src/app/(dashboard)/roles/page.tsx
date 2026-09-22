@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Checkbox, Drawer, Space, Table, Tag, Typography, message } from "antd";
+import { Button, Checkbox, Drawer, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useMessage } from "@/hooks/useMessage";
 import { permissionsApi, rolesApi } from "@/api/resources";
 import type { Permission, Role } from "@/types/models";
 import { usePermission } from "@/hooks/usePermission";
@@ -12,6 +13,7 @@ import { getErrorMessage } from "@/lib/errors";
 const resourceOf = (permissionName: string) => permissionName.split(".")[0];
 
 export default function RolesPage() {
+  const message = useMessage();
   const can = usePermission();
 
   const [roles, setRoles] = useState<Role[]>([]);
@@ -36,6 +38,7 @@ export default function RolesPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch-on-mount, not a render-triggered cascade
     loadRoles();
     permissionsApi.list().then(setAllPermissions).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadRoles is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
   const groups = useMemo(() => {

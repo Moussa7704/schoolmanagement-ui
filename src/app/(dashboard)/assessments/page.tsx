@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Tag, message } from "antd";
+import { Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
@@ -29,6 +30,7 @@ const TYPE_OPTIONS = [
 const TYPE_COLORS: Record<AssessmentType, string> = { DEVOIR: "blue", EXAMEN: "red" };
 
 export default function AssessmentsPage() {
+  const message = useMessage();
   const can = usePermission();
 
   const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -61,6 +63,7 @@ export default function AssessmentsPage() {
     classesApi.list().then(setClasses).catch(() => {});
     subjectsApi.list().then(setSubjects).catch(() => {});
     periodsApi.list().then(setPeriods).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAssessments is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
   const teacherAssignmentLabel = (id: number) => {

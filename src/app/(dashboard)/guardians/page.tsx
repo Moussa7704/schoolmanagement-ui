@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Tag, message } from "antd";
+import { Button, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
@@ -26,6 +27,7 @@ interface GrantAccessValues {
 }
 
 export default function GuardiansPage() {
+  const message = useMessage();
   const can = usePermission();
 
   const [guardians, setGuardians] = useState<Guardian[]>([]);
@@ -50,6 +52,7 @@ export default function GuardiansPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch-on-mount, not a render-triggered cascade
     loadGuardians();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadGuardians is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
   const openCreate = () => {

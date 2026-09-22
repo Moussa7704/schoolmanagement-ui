@@ -2,9 +2,10 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, Card, Form, Input, Result, Typography, message } from "antd";
+import { Button, Card, Form, Input, Result, Typography } from "antd";
 import { LockOutlined } from "@ant-design/icons";
 import { useAuth } from "@/hooks/useAuth";
+import { useMessage } from "@/hooks/useMessage";
 import { getErrorMessage } from "@/lib/errors";
 
 interface ResetPasswordFormValues {
@@ -13,6 +14,7 @@ interface ResetPasswordFormValues {
 }
 
 function ResetPasswordForm() {
+  const message = useMessage();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
 

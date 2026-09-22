@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 // compat warning and fixes the few internals that actually break otherwise.
 import "@ant-design/v5-patch-for-react-19";
 import { AntdRegistry } from "@ant-design/nextjs-registry";
-import { ConfigProvider } from "antd";
+import { App, ConfigProvider } from "antd";
 import frFR from "antd/locale/fr_FR";
 import { AuthProvider } from "@/context/AuthContext";
 import "./globals.css";
@@ -28,7 +28,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               },
             }}
           >
-            <AuthProvider>{children}</AuthProvider>
+            <App>
+              <AuthProvider>{children}</AuthProvider>
+            </App>
           </ConfigProvider>
         </AntdRegistry>
       </body>

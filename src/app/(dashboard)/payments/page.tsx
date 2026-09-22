@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Tag, message } from "antd";
+import { Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
@@ -32,6 +33,7 @@ const METHOD_COLORS: Record<PaymentMethod, string> = {
 };
 
 export default function PaymentsPage() {
+  const message = useMessage();
   const can = usePermission();
 
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -57,6 +59,7 @@ export default function PaymentsPage() {
     loadPayments();
     tuitionFeesApi.list().then(setTuitionFees).catch(() => {});
     studentsApi.list().then(setStudents).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadPayments is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
   const studentLabel = (id: number) => {

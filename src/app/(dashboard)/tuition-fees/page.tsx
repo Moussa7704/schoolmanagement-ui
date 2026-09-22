@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Tag, message } from "antd";
+import { Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
@@ -26,6 +27,7 @@ const STATUS_LABELS: Record<TuitionFeeStatus, { label: string; color: string }> 
 };
 
 export default function TuitionFeesPage() {
+  const message = useMessage();
   const can = usePermission();
 
   const [tuitionFees, setTuitionFees] = useState<TuitionFee[]>([]);
@@ -52,6 +54,7 @@ export default function TuitionFeesPage() {
     loadTuitionFees();
     studentsApi.list().then(setStudents).catch(() => {});
     academicYearsApi.list().then(setAcademicYears).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadTuitionFees is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
   const studentOptions = useMemo(

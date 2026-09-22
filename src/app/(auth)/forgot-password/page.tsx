@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Card, Form, Input, Result, Typography, message } from "antd";
+import { Button, Card, Form, Input, Result, Typography } from "antd";
 import { MailOutlined } from "@ant-design/icons";
 import { useAuth } from "@/hooks/useAuth";
+import { useMessage } from "@/hooks/useMessage";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function ForgotPasswordPage() {
+  const message = useMessage();
   const { forgotPassword } = useAuth();
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);

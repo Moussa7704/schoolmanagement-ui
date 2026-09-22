@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Dropdown, Space, Tag, message } from "antd";
+import { Button, Dropdown, Space, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
@@ -33,6 +34,7 @@ const STATUS_COLORS: Record<UserStatus, string> = {
 };
 
 export default function UsersPage() {
+  const message = useMessage();
   const { user: currentUser } = useAuth();
   const can = usePermission();
   const isSuperAdmin = currentUser?.Role?.name === "SUPER_ADMIN";
@@ -63,6 +65,7 @@ export default function UsersPage() {
     if (isSuperAdmin) {
       schoolsApi.list().then(setSchools).catch(() => {});
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadUsers is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, [isSuperAdmin]);
 
   const schoolOptions = useMemo(() => schools.map((s) => ({ label: s.name, value: s.id })), [schools]);

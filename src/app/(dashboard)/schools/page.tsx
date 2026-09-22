@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { message } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
@@ -20,6 +20,7 @@ const FIELDS: FormFieldSchema[] = [
 ];
 
 export default function SchoolsPage() {
+  const message = useMessage();
   const can = usePermission();
 
   const [schools, setSchools] = useState<School[]>([]);
@@ -42,6 +43,7 @@ export default function SchoolsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch-on-mount, not a render-triggered cascade
     loadSchools();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadSchools is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
   const openCreate = () => {

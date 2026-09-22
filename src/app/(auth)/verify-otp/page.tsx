@@ -2,12 +2,14 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, Card, Form, Input, Typography, message } from "antd";
+import { Button, Card, Form, Input, Typography } from "antd";
 import { SafetyOutlined } from "@ant-design/icons";
 import { useAuth } from "@/hooks/useAuth";
+import { useMessage } from "@/hooks/useMessage";
 import { getErrorMessage } from "@/lib/errors";
 
 function VerifyOtpForm() {
+  const message = useMessage();
   const searchParams = useSearchParams();
   const userId = Number(searchParams.get("user_id"));
   const email = searchParams.get("email") ?? "";

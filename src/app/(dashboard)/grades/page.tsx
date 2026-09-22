@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { message } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
@@ -13,6 +13,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function GradesPage() {
+  const message = useMessage();
   const can = usePermission();
 
   const [grades, setGrades] = useState<Grade[]>([]);
@@ -39,6 +40,7 @@ export default function GradesPage() {
     loadGrades();
     assessmentsApi.list().then(setAssessments).catch(() => {});
     studentsApi.list().then(setStudents).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadGrades is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
   const assessmentOptions = useMemo(() => assessments.map((a) => ({ label: a.name, value: a.id })), [assessments]);

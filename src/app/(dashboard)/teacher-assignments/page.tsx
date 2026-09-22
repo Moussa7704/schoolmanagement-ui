@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { message } from "antd";
 import type { ColumnsType } from "antd/es/table";
+import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
@@ -19,6 +19,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
 
 export default function TeacherAssignmentsPage() {
+  const message = useMessage();
   const can = usePermission();
 
   const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
@@ -46,6 +47,7 @@ export default function TeacherAssignmentsPage() {
     teachersApi.list().then(setTeachers).catch(() => {});
     classesApi.list().then(setClasses).catch(() => {});
     subjectsApi.list().then(setSubjects).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAssignments is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
   const teacherOptions = useMemo(
