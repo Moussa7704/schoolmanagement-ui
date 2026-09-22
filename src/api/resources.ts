@@ -299,9 +299,15 @@ export interface CreateReportCardPayload {
 }
 
 // Pas de update : le contenu se recalcule à la lecture (voir getDetail), seul le statut change via validate.
+export interface ReportCardListFilters {
+  class_id?: number;
+  period_id?: number;
+  student_id?: number;
+}
+
 export const reportCardsApi = {
-  list: async (): Promise<ReportCard[]> => {
-    const res = await api.get<ApiEnvelope<ReportCard[]>>("/report-cards");
+  list: async (filters: ReportCardListFilters = {}): Promise<ReportCard[]> => {
+    const res = await api.get<ApiEnvelope<ReportCard[]>>("/report-cards", { params: filters });
     return res.data.data;
   },
   create: async (payload: CreateReportCardPayload): Promise<ReportCard> => {

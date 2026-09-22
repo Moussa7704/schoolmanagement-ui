@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Descriptions, Divider, Modal, Popconfirm, Space, Table, Tag, Typography } from "antd";
+import { Button, Descriptions, Divider, Modal, Popconfirm, Select, Space, Table, Tag, Typography } from "antd";
 import { PrinterOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useMessage } from "@/hooks/useMessage";
@@ -37,11 +37,13 @@ export default function ReportCardsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [detail, setDetail] = useState<ReportCardDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [filterPeriodId, setFilterPeriodId] = useState<number | undefined>();
+  const [filterClassId, setFilterClassId] = useState<number | undefined>();
 
   const loadReportCards = async () => {
     setLoading(true);
     try {
-      setReportCards(await reportCardsApi.list());
+      setReportCards(await reportCardsApi.list({ period_id: filterPeriodId, class_id: filterClassId }));
     } catch (err) {
       message.error(getErrorMessage(err, "Échec du chargement des bulletins"));
     } finally {
@@ -50,20 +52,24 @@ export default function ReportCardsPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch-on-mount, not a render-triggered cascade
-    loadReportCards();
     studentsApi.list().then(setStudents).catch(() => {});
     periodsApi.list().then(setPeriods).catch(() => {});
     classesApi.list().then(setClasses).catch(() => {});
     schoolsApi.list().then(setSchools).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadReportCards is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- refetches from the backend whenever the period/class filters change (including the initial mount, with both undefined)
+    loadReportCards();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadReportCards is a stable closure re-created each render; re-running the effect on its identity would defeat the point of keying on the filters
+  }, [filterPeriodId, filterClassId]);
 
   const studentOptions = useMemo(
     () => students.map((s) => ({ label: `${s.first_name} ${s.last_name}`, value: s.id })),
     [students]
   );
   const periodOptions = useMemo(() => periods.map((p) => ({ label: p.label, value: p.id })), [periods]);
+  const classOptions = useMemo(() => classes.map((c) => ({ label: c.name, value: c.id })), [classes]);
   const studentLabel = (id: number) => {
     const s = students.find((s) => s.id === id);
     return s ? `${s.first_name} ${s.last_name}` : "—";
@@ -128,6 +134,7 @@ export default function ReportCardsPage() {
 
   const columns: ColumnsType<ReportCard> = [
     { title: "Élève", key: "student", render: (_, record) => studentLabel(record.student_id) },
+    { title: "Classe", key: "class", render: (_, record) => classLabel(record.class_id) },
     { title: "Période", key: "period", render: (_, record) => periodLabel(record.period_id) },
     { title: "Statut", dataIndex: "status", render: (v: ReportCardStatus) => <Tag color={STATUS_COLORS[v]}>{v}</Tag> },
     { title: "Généré le", dataIndex: "generated_at", render: (v) => (v ? new Date(v).toLocaleDateString("fr-FR") : "—") },
@@ -158,6 +165,26 @@ export default function ReportCardsPage() {
         columns={columns}
         onCreate={() => setDrawerOpen(true)}
         canCreate={can(PERMISSIONS.REPORT_CARDS_CREATE)}
+        extraActions={
+          <Space>
+            <Select
+              allowClear
+              placeholder="Filtrer par période"
+              style={{ width: 180 }}
+              options={periodOptions}
+              value={filterPeriodId}
+              onChange={setFilterPeriodId}
+            />
+            <Select
+              allowClear
+              placeholder="Filtrer par classe"
+              style={{ width: 180 }}
+              options={classOptions}
+              value={filterClassId}
+              onChange={setFilterClassId}
+            />
+          </Space>
+        }
       />
 
       <CrudFormDrawer<CreateReportCardPayload>
@@ -212,12 +239,19 @@ export default function ReportCardsPage() {
               size="small"
               columns={[
                 { title: "Matière", dataIndex: "subject_name" },
+                { title: "Coefficient", dataIndex: "coefficient", align: "right", width: 100 },
                 { title: "Moyenne / 20", dataIndex: "average", align: "right", render: (v) => (v ?? "—") },
               ]}
             />
 
             <div className="flex justify-between items-center mt-4 px-1">
-              <Typography.Text strong>Moyenne générale</Typography.Text>
+              <div>
+                <Typography.Text strong>Moyenne générale</Typography.Text>
+                <br />
+                <Typography.Text type="secondary" className="text-xs">
+                  Pondérée par le coefficient de chaque matière
+                </Typography.Text>
+              </div>
               <Typography.Title level={3} className="!mb-0">
                 {detail.overall_average ?? "—"} / 20
               </Typography.Title>

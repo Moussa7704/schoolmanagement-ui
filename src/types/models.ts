@@ -196,6 +196,7 @@ export interface ReportCard {
 export interface ReportCardSubjectAverage {
   subject_id: number;
   subject_name: string;
+  coefficient: number;
   average: number | null;
 }
 
