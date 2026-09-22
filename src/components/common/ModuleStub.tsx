@@ -1,3 +1,5 @@
+"use client";
+
 import { Empty, Tag, Typography } from "antd";
 
 interface ModuleStubProps {
