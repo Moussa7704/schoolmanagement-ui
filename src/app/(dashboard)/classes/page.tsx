@@ -1,16 +1,32 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Button, Modal, Select, Table, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
-import { academicYearsApi, classesApi, type CreateClassPayload, type UpdateClassPayload } from "@/api/resources";
-import type { AcademicYear, Class } from "@/types/models";
+import {
+  academicYearsApi,
+  classesApi,
+  enrollmentsApi,
+  studentsApi,
+  type CreateClassPayload,
+  type PromotionEntry,
+  type UpdateClassPayload,
+} from "@/api/resources";
+import type { AcademicYear, Class, Enrollment, EnrollmentStatus, Student } from "@/types/models";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
+
+type PromotionStatus = Extract<EnrollmentStatus, "ACTIVE" | "REPEATING">;
+
+interface PromotionRowState {
+  target_class_id?: number;
+  status: PromotionStatus;
+}
 
 export default function ClassesPage() {
   const message = useMessage();
@@ -22,6 +38,14 @@ export default function ClassesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Class | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const [promoteTarget, setPromoteTarget] = useState<Class | null>(null);
+  const [promoteLoading, setPromoteLoading] = useState(false);
+  const [promoteSubmitting, setPromoteSubmitting] = useState(false);
+  const [activeEnrollments, setActiveEnrollments] = useState<Enrollment[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [defaultTargetClassId, setDefaultTargetClassId] = useState<number | undefined>();
+  const [rowOverrides, setRowOverrides] = useState<Record<number, PromotionRowState>>({});
 
   const loadClasses = async () => {
     setLoading(true);
@@ -104,6 +128,81 @@ export default function ClassesPage() {
     }
   };
 
+  const openPromote = async (record: Class) => {
+    setPromoteTarget(record);
+    setDefaultTargetClassId(undefined);
+    setRowOverrides({});
+    setPromoteLoading(true);
+    try {
+      const [enrollments, studentsList] = await Promise.all([
+        enrollmentsApi.list({ class_id: record.id }),
+        studentsApi.list(),
+      ]);
+      setActiveEnrollments(enrollments.filter((e) => e.status === "ACTIVE"));
+      setStudents(studentsList);
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec du chargement des élèves de la classe"));
+    } finally {
+      setPromoteLoading(false);
+    }
+  };
+
+  const studentLabel = (id: number) => {
+    const s = students.find((student) => student.id === id);
+    return s ? `${s.first_name} ${s.last_name}` : "—";
+  };
+
+  const targetClassOptions = useMemo(
+    () =>
+      classes
+        .filter((c) => c.id !== promoteTarget?.id)
+        .map((c) => ({ label: `${c.name} (${academicYearLabel(c.academic_year_id)})`, value: c.id })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [classes, promoteTarget, academicYears]
+  );
+
+  const setRowOverride = (studentId: number, patch: Partial<PromotionRowState>) => {
+    setRowOverrides((prev) => ({
+      ...prev,
+      [studentId]: { status: prev[studentId]?.status ?? "ACTIVE", ...prev[studentId], ...patch },
+    }));
+  };
+
+  const handlePromoteSubmit = async () => {
+    if (!promoteTarget) return;
+
+    const promotions: PromotionEntry[] = [];
+    let skipped = 0;
+    for (const enrollment of activeEnrollments) {
+      const override = rowOverrides[enrollment.student_id];
+      const target_class_id = override?.target_class_id ?? defaultTargetClassId;
+      if (!target_class_id) {
+        skipped += 1;
+        continue;
+      }
+      promotions.push({ student_id: enrollment.student_id, target_class_id, status: override?.status ?? "ACTIVE" });
+    }
+
+    if (promotions.length === 0) {
+      message.error("Choisissez au moins une classe cible.");
+      return;
+    }
+    if (skipped > 0) {
+      message.warning(`${skipped} élève(s) sans classe cible ne seront pas promus.`);
+    }
+
+    setPromoteSubmitting(true);
+    try {
+      await classesApi.promote(promoteTarget.id, promotions);
+      message.success("Élèves promus avec succès");
+      setPromoteTarget(null);
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec de la promotion"));
+    } finally {
+      setPromoteSubmitting(false);
+    }
+  };
+
   const columns: ColumnsType<Class> = [
     { title: "Nom", dataIndex: "name" },
     { title: "Niveau", dataIndex: "level", render: (v) => v || "—" },
@@ -115,6 +214,12 @@ export default function ClassesPage() {
     buildActionsColumn<Class>({
       onEdit: can(PERMISSIONS.CLASSES_UPDATE) ? openEdit : undefined,
       onDelete: can(PERMISSIONS.CLASSES_DELETE) ? handleDelete : undefined,
+      extra: (record) =>
+        can(PERMISSIONS.ENROLLMENTS_CREATE) ? (
+          <Button size="small" onClick={() => openPromote(record)}>
+            Promouvoir
+          </Button>
+        ) : null,
     }),
   ];
 
@@ -139,6 +244,76 @@ export default function ClassesPage() {
         onClose={() => setDrawerOpen(false)}
         onSubmit={handleSubmit}
       />
+
+      <Modal
+        title={promoteTarget ? `Promouvoir les élèves de ${promoteTarget.name}` : "Promouvoir"}
+        open={!!promoteTarget}
+        onCancel={() => setPromoteTarget(null)}
+        width={720}
+        confirmLoading={promoteSubmitting}
+        onOk={handlePromoteSubmit}
+        okText="Promouvoir"
+        okButtonProps={{ disabled: activeEnrollments.length === 0 }}
+      >
+        <div className="mb-4">
+          <Typography.Text strong>Classe cible par défaut</Typography.Text>
+          <Select
+            className="block mt-1"
+            style={{ width: "100%" }}
+            placeholder="Choisir une classe cible pour tous les élèves"
+            options={targetClassOptions}
+            value={defaultTargetClassId}
+            onChange={setDefaultTargetClassId}
+            allowClear
+          />
+          <Typography.Text type="secondary" className="text-xs">
+            Applique cette classe à tous les élèves ci-dessous ; utilisez la colonne &quot;Classe cible&quot;
+            pour envoyer certains élèves ailleurs (redoublement, par exemple).
+          </Typography.Text>
+        </div>
+
+        <Table<Enrollment>
+          rowKey={(e) => e.student_id}
+          size="small"
+          loading={promoteLoading}
+          dataSource={activeEnrollments}
+          pagination={false}
+          columns={[
+            { title: "Élève", key: "student", render: (_, e) => studentLabel(e.student_id) },
+            {
+              title: "Classe cible",
+              key: "target",
+              render: (_, e) => (
+                <Select
+                  size="small"
+                  style={{ width: 220 }}
+                  placeholder="Classe par défaut"
+                  allowClear
+                  options={targetClassOptions}
+                  value={rowOverrides[e.student_id]?.target_class_id}
+                  onChange={(value) => setRowOverride(e.student_id, { target_class_id: value })}
+                />
+              ),
+            },
+            {
+              title: "Statut",
+              key: "status",
+              render: (_, e) => (
+                <Select<PromotionStatus>
+                  size="small"
+                  style={{ width: 130 }}
+                  value={rowOverrides[e.student_id]?.status ?? "ACTIVE"}
+                  options={[
+                    { label: "Passage", value: "ACTIVE" },
+                    { label: "Redouble", value: "REPEATING" },
+                  ]}
+                  onChange={(value) => setRowOverride(e.student_id, { status: value })}
+                />
+              ),
+            },
+          ]}
+        />
+      </Modal>
     </>
   );
 }

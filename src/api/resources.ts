@@ -247,7 +247,19 @@ export interface CreateClassPayload {
 
 export type UpdateClassPayload = Partial<Pick<CreateClassPayload, "name" | "level" | "capacity">>;
 
-export const classesApi = createResourceApi<Class, CreateClassPayload, UpdateClassPayload>("/classes");
+export interface PromotionEntry {
+  student_id: number;
+  target_class_id: number;
+  status?: "ACTIVE" | "REPEATING";
+}
+
+export const classesApi = {
+  ...createResourceApi<Class, CreateClassPayload, UpdateClassPayload>("/classes"),
+  promote: async (id: number, promotions: PromotionEntry[]): Promise<Enrollment[]> => {
+    const res = await api.post<ApiEnvelope<Enrollment[]>>(`/classes/${id}/promote`, { promotions });
+    return res.data.data;
+  },
+};
 
 export interface CreateEnrollmentPayload {
   student_id: number;
