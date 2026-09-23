@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Tag } from "antd";
+import { Button, Tag } from "antd";
+import { DownloadOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
@@ -37,6 +38,7 @@ export default function TuitionFeesPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<TuitionFee | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   const loadTuitionFees = async () => {
     setLoading(true);
@@ -114,6 +116,17 @@ export default function TuitionFeesPage() {
     }
   };
 
+  const handleDownloadInvoice = async (record: TuitionFee) => {
+    setDownloadingId(record.id);
+    try {
+      await tuitionFeesApi.downloadInvoice(record.id);
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec du téléchargement de la facture"));
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const handleDelete = async (record: TuitionFee) => {
     try {
       await tuitionFeesApi.remove(record.id);
@@ -139,6 +152,16 @@ export default function TuitionFeesPage() {
     buildActionsColumn<TuitionFee>({
       onEdit: can(PERMISSIONS.TUITION_FEES_UPDATE) ? openEdit : undefined,
       onDelete: can(PERMISSIONS.TUITION_FEES_DELETE) ? handleDelete : undefined,
+      extra: (record) => (
+        <Button
+          size="small"
+          icon={<DownloadOutlined />}
+          loading={downloadingId === record.id}
+          onClick={() => handleDownloadInvoice(record)}
+        >
+          Facture
+        </Button>
+      ),
     }),
   ];
 

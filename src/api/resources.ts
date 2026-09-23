@@ -27,6 +27,20 @@ import type {
   User,
 } from "@/types/models";
 
+// Déclenche le téléchargement d'un fichier binaire (PDF) servi par l'API,
+// qui répond en `application/pdf` et non dans l'enveloppe JSON habituelle.
+async function downloadFile(path: string, filename: string): Promise<void> {
+  const res = await api.get<Blob>(path, { responseType: "blob" });
+  const url = window.URL.createObjectURL(new Blob([res.data]));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
 export function createResourceApi<T, TCreate = Partial<T>, TUpdate = Partial<T>>(
   basePath: string
 ) {
@@ -410,9 +424,12 @@ export interface CreateTuitionFeePayload {
 
 export type UpdateTuitionFeePayload = Partial<Pick<CreateTuitionFeePayload, "label" | "amount" | "due_date">>;
 
-export const tuitionFeesApi = createResourceApi<TuitionFee, CreateTuitionFeePayload, UpdateTuitionFeePayload>(
-  "/tuition-fees"
-);
+export const tuitionFeesApi = {
+  ...createResourceApi<TuitionFee, CreateTuitionFeePayload, UpdateTuitionFeePayload>("/tuition-fees"),
+  downloadInvoice: async (id: number): Promise<void> => {
+    await downloadFile(`/tuition-fees/${id}/invoice`, `facture-${id}.pdf`);
+  },
+};
 
 export interface CreatePaymentPayload {
   tuition_fee_id: number;
@@ -434,5 +451,8 @@ export const paymentsApi = {
   },
   remove: async (id: number): Promise<void> => {
     await api.delete<ApiEnvelope<null>>(`/payments/${id}`);
+  },
+  downloadReceipt: async (id: number): Promise<void> => {
+    await downloadFile(`/payments/${id}/receipt`, `recu-paiement-${id}.pdf`);
   },
 };

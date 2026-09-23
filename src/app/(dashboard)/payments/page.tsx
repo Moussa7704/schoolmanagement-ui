@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Tag } from "antd";
+import { Button, Tag } from "antd";
+import { DownloadOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
@@ -42,6 +43,7 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
 
   const loadPayments = async () => {
     setLoading(true);
@@ -100,6 +102,17 @@ export default function PaymentsPage() {
     }
   };
 
+  const handleDownloadReceipt = async (record: Payment) => {
+    setDownloadingId(record.id);
+    try {
+      await paymentsApi.downloadReceipt(record.id);
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec du téléchargement du reçu"));
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const handleDelete = async (record: Payment) => {
     try {
       await paymentsApi.remove(record.id);
@@ -127,6 +140,16 @@ export default function PaymentsPage() {
     { title: "Référence", dataIndex: "reference", render: (v) => v || "—" },
     buildActionsColumn<Payment>({
       onDelete: can(PERMISSIONS.PAYMENTS_DELETE) ? handleDelete : undefined,
+      extra: (record) => (
+        <Button
+          size="small"
+          icon={<DownloadOutlined />}
+          loading={downloadingId === record.id}
+          onClick={() => handleDownloadReceipt(record)}
+        >
+          Reçu
+        </Button>
+      ),
     }),
   ];
 

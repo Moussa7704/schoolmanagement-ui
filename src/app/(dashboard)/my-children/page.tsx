@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, Descriptions, Empty, Select, Spin, Table, Tabs, Tag, Typography } from "antd";
+import { Button, Card, Descriptions, Empty, Select, Spin, Table, Tabs, Tag, Typography } from "antd";
+import { DownloadOutlined } from "@ant-design/icons";
 import { useMessage } from "@/hooks/useMessage";
 import {
   attendancesApi,
@@ -55,6 +56,29 @@ export default function MyChildrenPage() {
   const [reportCards, setReportCards] = useState<ReportCard[]>([]);
   const [tuitionFees, setTuitionFees] = useState<TuitionFee[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [downloadingKey, setDownloadingKey] = useState<string | null>(null);
+
+  const handleDownloadInvoice = async (tuitionFee: TuitionFee) => {
+    setDownloadingKey(`invoice-${tuitionFee.id}`);
+    try {
+      await tuitionFeesApi.downloadInvoice(tuitionFee.id);
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec du téléchargement de la facture"));
+    } finally {
+      setDownloadingKey(null);
+    }
+  };
+
+  const handleDownloadReceipt = async (payment: Payment) => {
+    setDownloadingKey(`receipt-${payment.id}`);
+    try {
+      await paymentsApi.downloadReceipt(payment.id);
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec du téléchargement du reçu"));
+    } finally {
+      setDownloadingKey(null);
+    }
+  };
 
   useEffect(() => {
     guardiansApi
@@ -249,6 +273,20 @@ export default function MyChildrenPage() {
                       ),
                     },
                     { title: "Échéance le", dataIndex: "due_date" },
+                    {
+                      title: "",
+                      key: "invoice",
+                      render: (_, r) => (
+                        <Button
+                          size="small"
+                          icon={<DownloadOutlined />}
+                          loading={downloadingKey === `invoice-${r.id}`}
+                          onClick={() => handleDownloadInvoice(r)}
+                        >
+                          Facture
+                        </Button>
+                      ),
+                    },
                   ]}
                 />
                 <Typography.Title level={5}>Paiements</Typography.Title>
@@ -263,6 +301,20 @@ export default function MyChildrenPage() {
                     { title: "Date", dataIndex: "payment_date" },
                     { title: "Méthode", dataIndex: "method" },
                     { title: "Référence", dataIndex: "reference", render: (v) => v || "—" },
+                    {
+                      title: "",
+                      key: "receipt",
+                      render: (_, r) => (
+                        <Button
+                          size="small"
+                          icon={<DownloadOutlined />}
+                          loading={downloadingKey === `receipt-${r.id}`}
+                          onClick={() => handleDownloadReceipt(r)}
+                        >
+                          Reçu
+                        </Button>
+                      ),
+                    },
                   ]}
                 />
               </>
