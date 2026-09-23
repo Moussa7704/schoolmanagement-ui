@@ -159,6 +159,22 @@ export interface TeacherAssignment {
   class_id: number;
   subject_id: number;
   academic_year_id: number;
+  Teacher?: Teacher;
+  Class?: Class;
+  Subject?: Subject;
+}
+
+export type DayOfWeek = "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
+
+export interface Schedule {
+  id: number;
+  teacher_assignment_id: number;
+  day_of_week: DayOfWeek;
+  start_time: string;
+  end_time: string;
+  room: string | null;
+  // Présent sur les réponses de GET /schedules (jointure jusqu'à l'affectation).
+  TeacherAssignment?: TeacherAssignment;
 }
 
 export type AssessmentType = "DEVOIR" | "EXAMEN";
@@ -211,6 +227,8 @@ export interface ReportCardSubjectAverage {
 export interface ReportCardDetail extends ReportCard {
   subjects: ReportCardSubjectAverage[];
   overall_average: number | null;
+  rank: number | null;
+  total_students: number;
 }
 
 export type AttendanceSession = "MORNING" | "AFTERNOON";

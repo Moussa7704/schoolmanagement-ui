@@ -97,6 +97,11 @@ export const PERMISSIONS = {
   PAYMENTS_VIEW: "payments.view",
   PAYMENTS_CREATE: "payments.create",
   PAYMENTS_DELETE: "payments.delete",
+
+  SCHEDULES_VIEW: "schedules.view",
+  SCHEDULES_CREATE: "schedules.create",
+  SCHEDULES_UPDATE: "schedules.update",
+  SCHEDULES_DELETE: "schedules.delete",
 } as const;
 
 export type PermissionName = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];

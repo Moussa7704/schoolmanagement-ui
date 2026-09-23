@@ -6,6 +6,7 @@ import type {
   Attendance,
   AttendanceStats,
   Class,
+  DayOfWeek,
   Enrollment,
   Grade,
   Guardian,
@@ -15,6 +16,7 @@ import type {
   ReportCard,
   ReportCardDetail,
   Role,
+  Schedule,
   School,
   Student,
   StudentGuardian,
@@ -293,6 +295,30 @@ export const teacherAssignmentsApi = {
   },
   remove: async (id: number): Promise<void> => {
     await api.delete<ApiEnvelope<null>>(`/teacher-assignments/${id}`);
+  },
+};
+
+export interface CreateSchedulePayload {
+  teacher_assignment_id: number;
+  day_of_week: DayOfWeek;
+  start_time: string;
+  end_time: string;
+  room?: string;
+}
+
+export type UpdateSchedulePayload = Partial<CreateSchedulePayload>;
+
+export interface ScheduleListFilters {
+  class_id?: number;
+  teacher_id?: number;
+  teacher_assignment_id?: number;
+}
+
+export const schedulesApi = {
+  ...createResourceApi<Schedule, CreateSchedulePayload, UpdateSchedulePayload>("/schedules"),
+  list: async (filters: ScheduleListFilters = {}): Promise<Schedule[]> => {
+    const res = await api.get<ApiEnvelope<Schedule[]>>("/schedules", { params: filters });
+    return res.data.data;
   },
 };
 

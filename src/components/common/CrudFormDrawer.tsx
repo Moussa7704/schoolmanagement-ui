@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Button, DatePicker, Drawer, Form, Input, InputNumber, Select, Space, Switch } from "antd";
+import { Button, DatePicker, Drawer, Form, Input, InputNumber, Select, Space, Switch, TimePicker } from "antd";
 import dayjs from "dayjs";
 import type { FormFieldSchema } from "./form-field";
 
@@ -37,6 +37,9 @@ export default function CrudFormDrawer<TValues extends object>({
         if (field.type === "date" && value) {
           prepared[field.name] = dayjs(value as string);
         }
+        if (field.type === "time" && value) {
+          prepared[field.name] = dayjs(value as string, "HH:mm:ss");
+        }
       }
       form.setFieldsValue(prepared);
     }
@@ -48,6 +51,9 @@ export default function CrudFormDrawer<TValues extends object>({
       const value = prepared[field.name];
       if (field.type === "date" && value) {
         prepared[field.name] = (value as dayjs.Dayjs).format("YYYY-MM-DD");
+      }
+      if (field.type === "time" && value) {
+        prepared[field.name] = (value as dayjs.Dayjs).format("HH:mm:ss");
       }
     }
     await onSubmit(prepared as TValues);
@@ -84,6 +90,8 @@ export default function CrudFormDrawer<TValues extends object>({
               <InputNumber className="w-full" placeholder={field.placeholder} />
             ) : field.type === "date" ? (
               <DatePicker className="w-full" placeholder={field.placeholder} />
+            ) : field.type === "time" ? (
+              <TimePicker className="w-full" format="HH:mm" placeholder={field.placeholder} />
             ) : field.type === "textarea" ? (
               <Input.TextArea placeholder={field.placeholder} />
             ) : field.type === "password" ? (

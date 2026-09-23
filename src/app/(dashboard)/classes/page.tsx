@@ -162,10 +162,10 @@ export default function ClassesPage() {
   );
 
   const setRowOverride = (studentId: number, patch: Partial<PromotionRowState>) => {
-    setRowOverrides((prev) => ({
-      ...prev,
-      [studentId]: { status: prev[studentId]?.status ?? "ACTIVE", ...prev[studentId], ...patch },
-    }));
+    setRowOverrides((prev) => {
+      const current: PromotionRowState = prev[studentId] ?? { status: "ACTIVE" };
+      return { ...prev, [studentId]: { ...current, ...patch } };
+    });
   };
 
   const handlePromoteSubmit = async () => {

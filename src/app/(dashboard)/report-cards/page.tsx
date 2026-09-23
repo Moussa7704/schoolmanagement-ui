@@ -256,6 +256,12 @@ export default function ReportCardsPage() {
                 {detail.overall_average ?? "—"} / 20
               </Typography.Title>
             </div>
+
+            <div className="text-right mt-1 px-1">
+              <Typography.Text type="secondary">
+                Rang : {detail.rank ? `${detail.rank} / ${detail.total_students}` : "Non classé"}
+              </Typography.Text>
+            </div>
           </div>
         )}
       </Modal>
