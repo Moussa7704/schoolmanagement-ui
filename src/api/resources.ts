@@ -29,8 +29,8 @@ export function createResourceApi<T, TCreate = Partial<T>, TUpdate = Partial<T>>
   basePath: string
 ) {
   return {
-    list: async (): Promise<T[]> => {
-      const res = await api.get<ApiEnvelope<T[]>>(basePath);
+    list: async (params?: Record<string, unknown>): Promise<T[]> => {
+      const res = await api.get<ApiEnvelope<T[]>>(basePath, { params });
       return res.data.data;
     },
     getById: async (id: number | string): Promise<T> => {
@@ -174,10 +174,25 @@ export interface CreateGuardianPayload {
 
 export type UpdateGuardianPayload = Partial<CreateGuardianPayload>;
 
+export interface ChildSummary {
+  student_id: number;
+  first_name: string;
+  last_name: string;
+  student_number: string | null;
+  relationship: "PERE" | "MERE" | "TUTEUR" | "AUTRE";
+  is_primary_contact: boolean;
+  class_id: number | null;
+  class_name: string | null;
+}
+
 export const guardiansApi = {
   ...createResourceApi<Guardian, CreateGuardianPayload, UpdateGuardianPayload>("/guardians"),
   grantAccess: async (id: number, payload: { email: string; password: string }) => {
     const res = await api.post<ApiEnvelope<Guardian>>(`/guardians/${id}/grant-access`, payload);
+    return res.data.data;
+  },
+  getMyChildren: async (): Promise<ChildSummary[]> => {
+    const res = await api.get<ApiEnvelope<ChildSummary[]>>("/guardians/me/children");
     return res.data.data;
   },
 };
@@ -371,8 +386,8 @@ export interface CreatePaymentPayload {
 
 // Pas de update : un paiement enregistré est définitif, seule la suppression est possible.
 export const paymentsApi = {
-  list: async (): Promise<Payment[]> => {
-    const res = await api.get<ApiEnvelope<Payment[]>>("/payments");
+  list: async (filters: { tuition_fee_id?: number; student_id?: number } = {}): Promise<Payment[]> => {
+    const res = await api.get<ApiEnvelope<Payment[]>>("/payments", { params: filters });
     return res.data.data;
   },
   create: async (payload: CreatePaymentPayload): Promise<Payment> => {

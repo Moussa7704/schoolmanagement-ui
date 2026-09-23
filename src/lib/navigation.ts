@@ -12,6 +12,7 @@ import {
   FileDoneOutlined,
   FileTextOutlined,
   FormOutlined,
+  HeartOutlined,
   IdcardOutlined,
   KeyOutlined,
   SafetyCertificateOutlined,
@@ -22,6 +23,7 @@ import {
   UsergroupAddOutlined,
 } from "@ant-design/icons";
 import type { ComponentType } from "react";
+import type { RoleName } from "@/types/models";
 import { PERMISSIONS, type PermissionName } from "./permissions";
 
 export interface NavItem {
@@ -33,6 +35,13 @@ export interface NavItem {
   permission: PermissionName | null;
   // true for the two modules wired to real pages this pass; the rest render ModuleStub
   implemented: boolean;
+  // When set, only these roles see the item — replaces the permission check
+  // entirely (used for a role-specific portal page with no dedicated permission,
+  // e.g. PARENT's "Suivi des enfants").
+  onlyForRoles?: RoleName[];
+  // Roles that never see this item even if they hold the permission (e.g. hiding
+  // the generic staff CRUD tables from PARENT, who gets a dedicated portal page instead).
+  hideForRoles?: RoleName[];
 }
 
 // Single source of truth for the sidebar Menu and for each stub page's
@@ -56,11 +65,14 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "enrollments", label: "Inscriptions", path: "/enrollments", icon: SolutionOutlined, permission: PERMISSIONS.ENROLLMENTS_VIEW, implemented: true },
   { key: "teacher-assignments", label: "Affectations enseignants", path: "/teacher-assignments", icon: UsergroupAddOutlined, permission: PERMISSIONS.TEACHER_ASSIGNMENTS_VIEW, implemented: true },
   { key: "assessments", label: "Évaluations", path: "/assessments", icon: FormOutlined, permission: PERMISSIONS.ASSESSMENTS_VIEW, implemented: true },
-  { key: "grades", label: "Notes", path: "/grades", icon: FileTextOutlined, permission: PERMISSIONS.GRADES_VIEW, implemented: true },
-  { key: "report-cards", label: "Bulletins", path: "/report-cards", icon: FileDoneOutlined, permission: PERMISSIONS.REPORT_CARDS_VIEW, implemented: true },
-  { key: "attendances", label: "Présences", path: "/attendances", icon: CheckSquareOutlined, permission: PERMISSIONS.ATTENDANCES_VIEW, implemented: true },
-  { key: "tuition-fees", label: "Frais de scolarité", path: "/tuition-fees", icon: DollarOutlined, permission: PERMISSIONS.TUITION_FEES_VIEW, implemented: true },
-  { key: "payments", label: "Paiements", path: "/payments", icon: CreditCardOutlined, permission: PERMISSIONS.PAYMENTS_VIEW, implemented: true },
+  { key: "grades", label: "Notes", path: "/grades", icon: FileTextOutlined, permission: PERMISSIONS.GRADES_VIEW, implemented: true, hideForRoles: ["PARENT"] },
+  { key: "report-cards", label: "Bulletins", path: "/report-cards", icon: FileDoneOutlined, permission: PERMISSIONS.REPORT_CARDS_VIEW, implemented: true, hideForRoles: ["PARENT"] },
+  { key: "attendances", label: "Présences", path: "/attendances", icon: CheckSquareOutlined, permission: PERMISSIONS.ATTENDANCES_VIEW, implemented: true, hideForRoles: ["PARENT"] },
+  { key: "tuition-fees", label: "Frais de scolarité", path: "/tuition-fees", icon: DollarOutlined, permission: PERMISSIONS.TUITION_FEES_VIEW, implemented: true, hideForRoles: ["PARENT"] },
+  { key: "payments", label: "Paiements", path: "/payments", icon: CreditCardOutlined, permission: PERMISSIONS.PAYMENTS_VIEW, implemented: true, hideForRoles: ["PARENT"] },
+  // Portail parent dédié : reprend les mêmes données (notes/présences/bulletins/scolarité)
+  // scopées à ses propres enfants, au lieu des tables génériques ci-dessus.
+  { key: "my-children", label: "Suivi des enfants", path: "/my-children", icon: HeartOutlined, permission: null, implemented: true, onlyForRoles: ["PARENT"] },
 ];
 
 export const getNavItem = (key: string): NavItem => {

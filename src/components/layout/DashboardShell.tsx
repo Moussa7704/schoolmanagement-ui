@@ -18,8 +18,14 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
   const can = usePermission();
 
   const visibleItems = useMemo(
-    () => NAV_ITEMS.filter((item) => item.permission === null || can(item.permission)),
-    [can]
+    () =>
+      NAV_ITEMS.filter((item) => {
+        const roleName = user?.Role?.name;
+        if (roleName && item.hideForRoles?.includes(roleName)) return false;
+        if (item.onlyForRoles) return !!roleName && item.onlyForRoles.includes(roleName);
+        return item.permission === null || can(item.permission);
+      }),
+    [can, user]
   );
 
   const menuItems: MenuProps["items"] = useMemo(

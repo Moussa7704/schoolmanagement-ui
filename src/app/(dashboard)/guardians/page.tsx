@@ -8,7 +8,7 @@ import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
 import { guardiansApi, type CreateGuardianPayload, type UpdateGuardianPayload } from "@/api/resources";
-import type { Guardian } from "@/types/models";
+import type { Guardian, UserStatus } from "@/types/models";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
@@ -25,6 +25,13 @@ interface GrantAccessValues {
   email: string;
   password: string;
 }
+
+const ACCOUNT_STATUS_COLORS: Record<UserStatus, string> = {
+  active: "green",
+  inactive: "default",
+  suspended: "red",
+  pending: "gold",
+};
 
 export default function GuardiansPage() {
   const message = useMessage();
@@ -117,7 +124,12 @@ export default function GuardiansPage() {
     {
       title: "Compte",
       key: "account",
-      render: (_, record) => (record.user_id ? <Tag color="green">Actif</Tag> : <Tag>Aucun</Tag>),
+      render: (_, record) =>
+        record.User ? (
+          <Tag color={ACCOUNT_STATUS_COLORS[record.User.status]}>{record.User.status}</Tag>
+        ) : (
+          <Tag>Aucun</Tag>
+        ),
     },
     buildActionsColumn<Guardian>({
       onEdit: can(PERMISSIONS.GUARDIANS_UPDATE) ? openEdit : undefined,

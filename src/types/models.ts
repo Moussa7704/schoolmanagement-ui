@@ -115,6 +115,7 @@ export interface Guardian {
   phone: string | null;
   email: string | null;
   address: string | null;
+  User?: Pick<User, "id" | "email" | "status">;
 }
 
 export type GuardianRelationship = "PERE" | "MERE" | "TUTEUR" | "AUTRE";
@@ -178,6 +179,13 @@ export interface Grade {
   assessment_id: number;
   student_id: number;
   score: number;
+  // Présent sur les réponses de GET /grades (jointure jusqu'à la matière) —
+  // absent des payloads envoyés en création/modification.
+  Assessment?: Assessment & {
+    TeacherAssignment?: TeacherAssignment & {
+      Subject?: Subject;
+    };
+  };
 }
 
 export type ReportCardStatus = "DRAFT" | "VALIDATED";
