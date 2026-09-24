@@ -279,3 +279,80 @@ export interface Payment {
   method: PaymentMethod;
   reference: string | null;
 }
+
+export interface TuitionSummary {
+  total_due: number;
+  total_paid: number;
+  overdue_amount: number;
+  overdue_count: number;
+  pending_count: number;
+}
+
+export interface ClassBreakdown {
+  class_id: number;
+  class_name: string;
+  level: string | null;
+  students_count: number;
+  attendance_rate: number | null;
+  report_cards: { validated_count: number; draft_count: number };
+}
+
+export interface SchoolDashboardStats {
+  scope: "school";
+  school: { id: number; name: string } | null;
+  academic_year: { id: number; label: string } | null;
+  students_count: number;
+  teachers_count: number;
+  classes_count: number;
+  active_enrollments_count: number;
+  attendance_rate: number | null;
+  tuition: TuitionSummary;
+  report_cards: { validated_count: number; draft_count: number };
+  classes: ClassBreakdown[];
+}
+
+export interface PlatformSchoolBreakdown {
+  school_id: number;
+  school_name: string;
+  students_count: number;
+  teachers_count: number;
+  classes_count: number;
+  attendance_rate: number | null;
+  tuition: TuitionSummary;
+}
+
+export interface PlatformDashboardStats {
+  scope: "platform";
+  schools_count: number;
+  students_count: number;
+  teachers_count: number;
+  classes_count: number;
+  total_due: number;
+  total_paid: number;
+  overdue_amount: number;
+  overdue_count: number;
+  schools: PlatformSchoolBreakdown[];
+}
+
+export interface TeacherDashboardStats {
+  scope: "teacher";
+  classes_count: number;
+  students_count: number;
+  assessments_count: number;
+  attendance_rate: number | null;
+  classes: ClassBreakdown[];
+}
+
+export interface ParentDashboardStats {
+  scope: "parent";
+  children_count: number;
+  total_balance_due: number;
+  next_due_date: string | null;
+}
+
+export type DashboardStats =
+  | PlatformDashboardStats
+  | SchoolDashboardStats
+  | TeacherDashboardStats
+  | ParentDashboardStats
+  | { scope: "none" };

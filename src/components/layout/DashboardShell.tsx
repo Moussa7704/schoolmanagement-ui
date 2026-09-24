@@ -17,6 +17,18 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const can = usePermission();
 
+  // SUPER_ADMIN n'est rattaché à aucune école (school_id null) : on garde le
+  // nom générique dans ce cas, sinon on affiche l'école de l'utilisateur connecté.
+  const schoolName = user?.School?.name;
+  const sidebarLabel = schoolName ?? "SchoolManager";
+  const sidebarLabelCollapsed = schoolName
+    ? schoolName
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((word) => word[0]?.toUpperCase())
+        .join("")
+    : "SM";
+
   const visibleItems = useMemo(
     () =>
       NAV_ITEMS.filter((item) => {
@@ -58,8 +70,8 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <Layout className="min-h-screen">
       <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} theme="light" breakpoint="lg">
-        <div className="h-16 flex items-center justify-center font-bold text-lg text-blue-600 overflow-hidden whitespace-nowrap">
-          {collapsed ? "SM" : "SchoolManager"}
+        <div className="h-16 flex items-center justify-center font-bold text-lg text-blue-600 overflow-hidden whitespace-nowrap px-2">
+          {collapsed ? sidebarLabelCollapsed : sidebarLabel}
         </div>
         <Menu
           mode="inline"

@@ -6,6 +6,7 @@ import type {
   Attendance,
   AttendanceStats,
   Class,
+  DashboardStats,
   DayOfWeek,
   Enrollment,
   Grade,
@@ -454,5 +455,12 @@ export const paymentsApi = {
   },
   downloadReceipt: async (id: number): Promise<void> => {
     await downloadFile(`/payments/${id}/receipt`, `recu-paiement-${id}.pdf`);
+  },
+};
+
+export const dashboardApi = {
+  getStats: async (): Promise<DashboardStats> => {
+    const res = await api.get<ApiEnvelope<DashboardStats>>("/dashboard/stats");
+    return res.data.data;
   },
 };
