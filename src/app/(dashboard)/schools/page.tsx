@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "antd";
+import { DownloadOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
@@ -8,6 +10,7 @@ import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
 import { schoolsApi, type CreateSchoolPayload, type UpdateSchoolPayload } from "@/api/resources";
 import type { School } from "@/types/models";
+import { useAuth } from "@/hooks/useAuth";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
@@ -21,13 +24,16 @@ const FIELDS: FormFieldSchema[] = [
 
 export default function SchoolsPage() {
   const message = useMessage();
+  const { user: currentUser } = useAuth();
   const can = usePermission();
+  const isSuperAdmin = currentUser?.Role?.name === "SUPER_ADMIN";
 
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<School | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [exportingId, setExportingId] = useState<number | null>(null);
 
   const loadSchools = async () => {
     setLoading(true);
@@ -85,6 +91,17 @@ export default function SchoolsPage() {
     }
   };
 
+  const handleExport = async (record: School) => {
+    setExportingId(record.id);
+    try {
+      await schoolsApi.exportData(record.id);
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec de l'export des données"));
+    } finally {
+      setExportingId(null);
+    }
+  };
+
   const columns: ColumnsType<School> = [
     { title: "Nom", dataIndex: "name" },
     { title: "Adresse", dataIndex: "address", render: (v) => v || "—" },
@@ -93,6 +110,17 @@ export default function SchoolsPage() {
     buildActionsColumn<School>({
       onEdit: can(PERMISSIONS.SCHOOLS_UPDATE) ? openEdit : undefined,
       onDelete: can(PERMISSIONS.SCHOOLS_DELETE) ? handleDelete : undefined,
+      extra: (record) =>
+        isSuperAdmin ? (
+          <Button
+            size="small"
+            icon={<DownloadOutlined />}
+            loading={exportingId === record.id}
+            onClick={() => handleExport(record)}
+          >
+            Exporter
+          </Button>
+        ) : null,
     }),
   ];
 

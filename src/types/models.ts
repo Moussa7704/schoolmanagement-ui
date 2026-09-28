@@ -342,6 +342,7 @@ export interface PlatformDashboardStats {
   total_paid: number;
   overdue_amount: number;
   overdue_count: number;
+  cycles: CycleBreakdown[];
   schools: PlatformSchoolBreakdown[];
 }
 

@@ -210,6 +210,9 @@ export default function DashboardHomePage() {
             overdue_count: stats.overdue_count,
             pending_count: stats.schools.reduce((sum, s) => sum + s.tuition.pending_count, 0),
           }} />
+          <Typography.Title level={5} className="mt-6">Répartition par cycle (toutes écoles)</Typography.Title>
+          <CycleCharts cycles={stats.cycles} />
+
           <Typography.Title level={5} className="mt-6">Détail par école</Typography.Title>
           <SchoolBreakdownTable schools={stats.schools} />
         </>

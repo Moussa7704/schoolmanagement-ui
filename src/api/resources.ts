@@ -125,7 +125,12 @@ export interface CreateSchoolPayload {
 
 export type UpdateSchoolPayload = Partial<CreateSchoolPayload>;
 
-export const schoolsApi = createResourceApi<School, CreateSchoolPayload, UpdateSchoolPayload>("/schools");
+export const schoolsApi = {
+  ...createResourceApi<School, CreateSchoolPayload, UpdateSchoolPayload>("/schools"),
+  exportData: async (id: number) => {
+    await downloadFile(`/schools/${id}/export`, `export-ecole-${id}.zip`);
+  },
+};
 
 export interface CreateSubjectPayload {
   name: string;
