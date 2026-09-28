@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Card, Col, Progress, Row, Statistic, Table, Tag, Typography } from "antd";
 import {
   BankOutlined,
@@ -17,10 +18,29 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useMessage } from "@/hooks/useMessage";
 import { dashboardApi } from "@/api/resources";
-import type { ClassBreakdown, CycleBreakdown, DashboardStats, PlatformSchoolBreakdown, TuitionSummary } from "@/types/models";
+import type {
+  ClassBreakdown,
+  CycleBreakdown,
+  DashboardStats,
+  GenderBreakdown,
+  MonthlyPoint,
+  PlatformSchoolBreakdown,
+  TuitionSummary,
+} from "@/types/models";
 import { getErrorMessage } from "@/lib/errors";
 import { CYCLE_LABELS } from "@/lib/cycles";
 import BarChart from "@/components/common/BarChart";
+
+// G2 dessine sur un canvas dès l'import : chargement côté client uniquement.
+const chartsModule = () => import("@/components/dashboard/DashboardCharts");
+const chartLoading = () => <div style={{ height: 240 }} />;
+const EnrollmentsLineChart = dynamic(() => chartsModule().then((m) => m.EnrollmentsLineChart), { ssr: false, loading: chartLoading });
+const PaymentsAreaChart = dynamic(() => chartsModule().then((m) => m.PaymentsAreaChart), { ssr: false, loading: chartLoading });
+const RecoveryGauge = dynamic(() => chartsModule().then((m) => m.RecoveryGauge), { ssr: false, loading: chartLoading });
+const PaymentStatusDonut = dynamic(() => chartsModule().then((m) => m.PaymentStatusDonut), { ssr: false, loading: chartLoading });
+const GenderDonut = dynamic(() => chartsModule().then((m) => m.GenderDonut), { ssr: false, loading: chartLoading });
+const CategoryColumnChart = dynamic(() => chartsModule().then((m) => m.CategoryColumnChart), { ssr: false, loading: chartLoading });
+const AttendanceBarChart = dynamic(() => chartsModule().then((m) => m.AttendanceBarChart), { ssr: false, loading: chartLoading });
 
 const formatAmount = (v: number) => `${v.toLocaleString("fr-FR")} CFA`;
 const formatRate = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
@@ -50,7 +70,10 @@ function TuitionCards({ tuition }: { tuition: TuitionSummary }) {
       </Col>
       <Col xs={24} sm={8}>
         <Card size="small">
-          <Statistic title="Échéances en attente" value={tuition.pending_count} />
+          <Statistic title="Échéances en cours" value={tuition.pending_count + tuition.partial_count} />
+          <Typography.Text type="secondary" className="text-xs">
+            dont {tuition.partial_count} partiellement payée(s)
+          </Typography.Text>
         </Card>
       </Col>
     </Row>
@@ -118,19 +141,40 @@ function ClassBreakdownTable({ classes }: { classes: ClassBreakdown[] }) {
   );
 }
 
-function CycleCharts({ cycles }: { cycles: CycleBreakdown[] }) {
-  if (cycles.length === 0) {
-    return <Typography.Text type="secondary">Aucune classe pour l&apos;année scolaire courante.</Typography.Text>;
-  }
+function TuitionCharts({ tuition, paymentsByMonth }: { tuition: TuitionSummary; paymentsByMonth: MonthlyPoint[] }) {
+  return (
+    <Row gutter={[16, 16]} className="mt-4">
+      <Col xs={24} md={12} xl={7}>
+        <Card size="small" title="Taux de recouvrement" className="h-full">
+          <RecoveryGauge tuition={tuition} />
+        </Card>
+      </Col>
+      <Col xs={24} md={12} xl={7}>
+        <Card size="small" title="Statut des échéances" className="h-full">
+          <PaymentStatusDonut tuition={tuition} />
+        </Card>
+      </Col>
+      <Col xs={24} xl={10}>
+        <Card size="small" title="Montants encaissés par mois" className="h-full">
+          <PaymentsAreaChart data={paymentsByMonth} />
+        </Card>
+      </Col>
+    </Row>
+  );
+}
 
+function PopulationCharts({
+  cycles,
+  gender,
+  enrollmentsByMonth,
+}: {
+  cycles: CycleBreakdown[];
+  gender: GenderBreakdown;
+  enrollmentsByMonth: MonthlyPoint[];
+}) {
   const cycleLabel = (c: CycleBreakdown) => (c.cycle ? CYCLE_LABELS[c.cycle] : "Non classé");
 
-  const studentsData = cycles.map((c) => ({
-    key: c.cycle ?? "none",
-    label: cycleLabel(c),
-    value: c.students_count,
-    tooltip: `${cycleLabel(c)} : ${c.students_count} élève(s) sur ${c.classes_count} classe(s)`,
-  }));
+  const studentsData = cycles.map((c) => ({ label: cycleLabel(c), value: c.students_count }));
 
   const attendanceData = cycles
     .filter((c) => c.attendance_rate !== null)
@@ -142,18 +186,36 @@ function CycleCharts({ cycles }: { cycles: CycleBreakdown[] }) {
     }));
 
   return (
-    <Row gutter={16} className="mt-4">
-      <Col xs={24} sm={12}>
-        <Card size="small" title="Élèves par cycle">
-          <BarChart data={studentsData} />
-        </Card>
-      </Col>
-      <Col xs={24} sm={12}>
-        <Card size="small" title="Taux de présence par cycle">
-          <BarChart data={attendanceData} valueFormatter={(v) => `${v}%`} emptyLabel="Aucune présence enregistrée" />
-        </Card>
-      </Col>
-    </Row>
+    <>
+      <Row gutter={[16, 16]} className="mt-4">
+        <Col xs={24} xl={14}>
+          <Card size="small" title="Inscriptions par mois" className="h-full">
+            <EnrollmentsLineChart data={enrollmentsByMonth} />
+          </Card>
+        </Col>
+        <Col xs={24} md={12} xl={10}>
+          <Card size="small" title="Élèves par sexe" className="h-full">
+            <GenderDonut gender={gender} />
+          </Card>
+        </Col>
+      </Row>
+      <Row gutter={[16, 16]} className="mt-4">
+        <Col xs={24} md={12}>
+          <Card size="small" title="Effectifs par niveau" className="h-full">
+            <CategoryColumnChart
+              data={studentsData}
+              seriesName="Élèves"
+              emptyLabel="Aucune classe pour l'année scolaire courante"
+            />
+          </Card>
+        </Col>
+        <Col xs={24} md={12}>
+          <Card size="small" title="Taux de présence par cycle" className="h-full">
+            <BarChart data={attendanceData} valueFormatter={(v) => `${v}%`} emptyLabel="Aucune présence enregistrée" />
+          </Card>
+        </Col>
+      </Row>
+    </>
   );
 }
 
@@ -203,15 +265,34 @@ export default function DashboardHomePage() {
               </Card>
             </Col>
           </Row>
-          <TuitionCards tuition={{
-            total_due: stats.total_due,
-            total_paid: stats.total_paid,
-            overdue_amount: stats.overdue_amount,
-            overdue_count: stats.overdue_count,
-            pending_count: stats.schools.reduce((sum, s) => sum + s.tuition.pending_count, 0),
-          }} />
-          <Typography.Title level={5} className="mt-6">Répartition par cycle (toutes écoles)</Typography.Title>
-          <CycleCharts cycles={stats.cycles} />
+          {(() => {
+            const tuition: TuitionSummary = {
+              total_due: stats.total_due,
+              total_paid: stats.total_paid,
+              overdue_amount: stats.overdue_amount,
+              overdue_count: stats.overdue_count,
+              pending_count: stats.pending_count,
+              partial_count: stats.partial_count,
+              paid_count: stats.paid_count,
+              recovery_rate: stats.recovery_rate,
+            };
+            return (
+              <>
+                <TuitionCards tuition={tuition} />
+                <TuitionCharts tuition={tuition} paymentsByMonth={stats.payments_by_month} />
+              </>
+            );
+          })()}
+
+          <Typography.Title level={5} className="mt-6">Élèves (toutes écoles)</Typography.Title>
+          <PopulationCharts cycles={stats.cycles} gender={stats.gender} enrollmentsByMonth={stats.enrollments_by_month} />
+
+          <Card size="small" title="Taux de présence par école (du plus faible au plus fort)" className="mt-4">
+            <AttendanceBarChart
+              data={stats.schools.map((s) => ({ label: s.school_name, rate: s.attendance_rate }))}
+              emptyLabel="Aucune présence enregistrée"
+            />
+          </Card>
 
           <Typography.Title level={5} className="mt-6">Détail par école</Typography.Title>
           <SchoolBreakdownTable schools={stats.schools} />
@@ -266,9 +347,17 @@ export default function DashboardHomePage() {
 
           <Typography.Title level={5} className="mt-6">Scolarité{stats.academic_year ? ` — ${stats.academic_year.label}` : ""}</Typography.Title>
           <TuitionCards tuition={stats.tuition} />
+          <TuitionCharts tuition={stats.tuition} paymentsByMonth={stats.payments_by_month} />
 
-          <Typography.Title level={5} className="mt-6">Répartition par cycle</Typography.Title>
-          <CycleCharts cycles={stats.cycles} />
+          <Typography.Title level={5} className="mt-6">Élèves</Typography.Title>
+          <PopulationCharts cycles={stats.cycles} gender={stats.gender} enrollmentsByMonth={stats.enrollments_by_month} />
+
+          <Card size="small" title="Taux de présence par classe (de la plus faible à la plus forte)" className="mt-4">
+            <AttendanceBarChart
+              data={stats.classes.map((c) => ({ label: c.class_name, rate: c.attendance_rate }))}
+              emptyLabel="Aucune présence enregistrée"
+            />
+          </Card>
 
           <Typography.Title level={5} className="mt-6">Détail par classe</Typography.Title>
           {stats.classes.length === 0 ? (

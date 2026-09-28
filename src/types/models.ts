@@ -288,7 +288,25 @@ export interface TuitionSummary {
   total_paid: number;
   overdue_amount: number;
   overdue_count: number;
+  /** Rien payé, échéance pas encore dépassée. */
   pending_count: number;
+  /** Payée en partie, échéance pas encore dépassée. */
+  partial_count: number;
+  paid_count: number;
+  /** total_paid / total_due, entre 0 et 1 — null si rien n'est dû. */
+  recovery_rate: number | null;
+}
+
+export interface GenderBreakdown {
+  boys_count: number;
+  girls_count: number;
+  unknown_count: number;
+}
+
+/** Point d'une série mensuelle — month au format "YYYY-MM". */
+export interface MonthlyPoint {
+  month: string;
+  value: number;
 }
 
 export interface ClassBreakdown {
@@ -320,6 +338,9 @@ export interface SchoolDashboardStats {
   report_cards: { validated_count: number; draft_count: number };
   classes: ClassBreakdown[];
   cycles: CycleBreakdown[];
+  gender: GenderBreakdown;
+  enrollments_by_month: MonthlyPoint[];
+  payments_by_month: MonthlyPoint[];
 }
 
 export interface PlatformSchoolBreakdown {
@@ -342,7 +363,14 @@ export interface PlatformDashboardStats {
   total_paid: number;
   overdue_amount: number;
   overdue_count: number;
+  pending_count: number;
+  partial_count: number;
+  paid_count: number;
+  recovery_rate: number | null;
   cycles: CycleBreakdown[];
+  gender: GenderBreakdown;
+  enrollments_by_month: MonthlyPoint[];
+  payments_by_month: MonthlyPoint[];
   schools: PlatformSchoolBreakdown[];
 }
 
