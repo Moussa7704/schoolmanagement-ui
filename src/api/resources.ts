@@ -8,6 +8,7 @@ import type {
   Class,
   DashboardStats,
   DayOfWeek,
+  EducationCycle,
   Enrollment,
   Grade,
   Guardian,
@@ -259,10 +260,11 @@ export interface CreateClassPayload {
   academic_year_id: number;
   name: string;
   level?: string;
+  cycle?: EducationCycle;
   capacity?: number;
 }
 
-export type UpdateClassPayload = Partial<Pick<CreateClassPayload, "name" | "level" | "capacity">>;
+export type UpdateClassPayload = Partial<Pick<CreateClassPayload, "name" | "level" | "cycle" | "capacity">>;
 
 export interface PromotionEntry {
   student_id: number;

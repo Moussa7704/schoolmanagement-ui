@@ -8,12 +8,25 @@ import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
 import { academicYearsApi, classesApi, enrollmentsApi, studentsApi, type CreateClassPayload, type PromotionEntry, type UpdateClassPayload, } from "@/api/resources";
-import type { AcademicYear, Class, Enrollment, EnrollmentStatus, Student } from "@/types/models";
+import type { AcademicYear, Class, EducationCycle, Enrollment, EnrollmentStatus, Student } from "@/types/models";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
 
 type PromotionStatus = Extract<EnrollmentStatus, "ACTIVE" | "REPEATING">;
+
+const CYCLE_LABELS: Record<EducationCycle, string> = {
+  PRESCOLAIRE: "Préscolaire / Maternelle",
+  PRIMAIRE: "Primaire",
+  COLLEGE: "Collège",
+  LYCEE: "Lycée",
+  SUPERIEUR: "Supérieur",
+};
+
+const CYCLE_OPTIONS = (Object.keys(CYCLE_LABELS) as EducationCycle[]).map((value) => ({
+  label: CYCLE_LABELS[value],
+  value,
+}));
 
 interface PromotionRowState {
   target_class_id?: number;
@@ -43,11 +56,12 @@ export default function ClassesPage() {
   const [rosterLoading, setRosterLoading] = useState(false);
   const [rosterEnrollments, setRosterEnrollments] = useState<Enrollment[]>([]);
   const [rosterStudents, setRosterStudents] = useState<Student[]>([]);
+  const [filterCycle, setFilterCycle] = useState<EducationCycle | undefined>();
 
   const loadClasses = async () => {
     setLoading(true);
     try {
-      setClasses(await classesApi.list());
+      setClasses(await classesApi.list({ cycle: filterCycle }));
     } catch (err) {
       message.error(getErrorMessage(err, "Échec du chargement des classes"));
     } finally {
@@ -56,11 +70,15 @@ export default function ClassesPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch-on-mount, not a render-triggered cascade
-    loadClasses();
     academicYearsApi.list().then(setAcademicYears).catch(() => { });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadClasses is a stable mount-time fetch, not meant to re-run when its own closure identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch-on-mount only
   }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- refetches from the backend whenever the filter changes (including the initial mount, with it undefined)
+    loadClasses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadClasses is a stable closure re-created each render; re-running the effect on its identity would defeat the point of keying on the filter
+  }, [filterCycle]);
 
   const academicYearOptions = useMemo(
     () => academicYears.map((a) => ({ label: a.label, value: a.id })),
@@ -71,7 +89,8 @@ export default function ClassesPage() {
   const fields: FormFieldSchema[] = useMemo(() => {
     const base: FormFieldSchema[] = [
       { name: "name", label: "Nom", type: "text", required: true, placeholder: "6ème A" },
-      { name: "level", label: "Niveau", type: "text" },
+      { name: "level", label: "Niveau", type: "text", placeholder: "6ème" },
+      { name: "cycle", label: "Cycle", type: "select", options: CYCLE_OPTIONS },
       { name: "capacity", label: "Capacité", type: "number" },
     ];
     if (!editing) {
@@ -222,6 +241,7 @@ export default function ClassesPage() {
   const columns: ColumnsType<Class> = [
     { title: "Nom", dataIndex: "name" },
     { title: "Niveau", dataIndex: "level", render: (v) => v || "—" },
+    { title: "Cycle", dataIndex: "cycle", render: (v: EducationCycle | null) => (v ? CYCLE_LABELS[v] : "—") },
     { title: "Capacité", dataIndex: "capacity", render: (v) => v ?? "—" },
     { title: "Effectif", dataIndex: "students_count", render: (v) => v ?? 0 },
     { title: "Garçons", dataIndex: "boys_count", render: (v) => v ?? 0 },
@@ -257,6 +277,16 @@ export default function ClassesPage() {
         columns={columns}
         onCreate={openCreate}
         canCreate={can(PERMISSIONS.CLASSES_CREATE)}
+        extraActions={
+          <Select
+            allowClear
+            placeholder="Filtrer par cycle"
+            style={{ width: 200 }}
+            options={CYCLE_OPTIONS}
+            value={filterCycle}
+            onChange={setFilterCycle}
+          />
+        }
       />
 
       <CrudFormDrawer<CreateClassPayload | UpdateClassPayload>

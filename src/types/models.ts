@@ -130,11 +130,14 @@ export interface StudentGuardian {
   Guardian?: Pick<Guardian, "id" | "first_name" | "last_name" | "phone" | "email">;
 }
 
+export type EducationCycle = "PRESCOLAIRE" | "PRIMAIRE" | "COLLEGE" | "LYCEE" | "SUPERIEUR";
+
 export interface Class {
   id: number;
   academic_year_id: number;
   name: string;
   level: string | null;
+  cycle: EducationCycle | null;
   capacity: number | null;
   students_count?: number;
   boys_count?: number;
