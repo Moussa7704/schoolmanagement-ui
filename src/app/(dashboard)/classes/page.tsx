@@ -7,15 +7,7 @@ import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
-import {
-  academicYearsApi,
-  classesApi,
-  enrollmentsApi,
-  studentsApi,
-  type CreateClassPayload,
-  type PromotionEntry,
-  type UpdateClassPayload,
-} from "@/api/resources";
+import { academicYearsApi, classesApi, enrollmentsApi, studentsApi, type CreateClassPayload, type PromotionEntry, type UpdateClassPayload, } from "@/api/resources";
 import type { AcademicYear, Class, Enrollment, EnrollmentStatus, Student } from "@/types/models";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -47,6 +39,11 @@ export default function ClassesPage() {
   const [defaultTargetClassId, setDefaultTargetClassId] = useState<number | undefined>();
   const [rowOverrides, setRowOverrides] = useState<Record<number, PromotionRowState>>({});
 
+  const [rosterTarget, setRosterTarget] = useState<Class | null>(null);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [rosterEnrollments, setRosterEnrollments] = useState<Enrollment[]>([]);
+  const [rosterStudents, setRosterStudents] = useState<Student[]>([]);
+
   const loadClasses = async () => {
     setLoading(true);
     try {
@@ -61,7 +58,7 @@ export default function ClassesPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch-on-mount, not a render-triggered cascade
     loadClasses();
-    academicYearsApi.list().then(setAcademicYears).catch(() => {});
+    academicYearsApi.list().then(setAcademicYears).catch(() => { });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadClasses is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
@@ -152,6 +149,25 @@ export default function ClassesPage() {
     return s ? `${s.first_name} ${s.last_name}` : "—";
   };
 
+  const openRoster = async (record: Class) => {
+    setRosterTarget(record);
+    setRosterLoading(true);
+    try {
+      const [enrollments, studentsList] = await Promise.all([
+        enrollmentsApi.list({ class_id: record.id }),
+        studentsApi.list(),
+      ]);
+      setRosterEnrollments(enrollments.filter((e) => e.status === "ACTIVE"));
+      setRosterStudents(studentsList);
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec du chargement des élèves de la classe"));
+    } finally {
+      setRosterLoading(false);
+    }
+  };
+
+  const rosterStudent = (studentId: number) => rosterStudents.find((s) => s.id === studentId);
+
   const targetClassOptions = useMemo(
     () =>
       classes
@@ -214,12 +230,20 @@ export default function ClassesPage() {
     buildActionsColumn<Class>({
       onEdit: can(PERMISSIONS.CLASSES_UPDATE) ? openEdit : undefined,
       onDelete: can(PERMISSIONS.CLASSES_DELETE) ? handleDelete : undefined,
-      extra: (record) =>
-        can(PERMISSIONS.ENROLLMENTS_CREATE) ? (
-          <Button size="small" onClick={() => openPromote(record)}>
-            Promouvoir
-          </Button>
-        ) : null,
+      extra: (record) => (
+        <>
+          {can(PERMISSIONS.STUDENTS_VIEW) && (
+            <Button size="small" onClick={() => openRoster(record)}>
+              Élèves
+            </Button>
+          )}
+          {can(PERMISSIONS.ENROLLMENTS_CREATE) && (
+            <Button size="small" onClick={() => openPromote(record)}>
+              Promouvoir
+            </Button>
+          )}
+        </>
+      ),
     }),
   ];
 
@@ -313,6 +337,55 @@ export default function ClassesPage() {
             },
           ]}
         />
+      </Modal>
+
+      <Modal
+        title={rosterTarget ? `Élèves de ${rosterTarget.name}` : "Élèves"}
+        open={!!rosterTarget}
+        onCancel={() => setRosterTarget(null)}
+        width={640}
+        footer={
+          <Button onClick={() => setRosterTarget(null)}>Fermer</Button>
+        }
+      >
+        <Table<Enrollment>
+          rowKey={(e) => e.student_id}
+          size="small"
+          loading={rosterLoading}
+          dataSource={rosterEnrollments}
+          pagination={false}
+          columns={[
+            {
+              title: "Nom",
+              key: "name",
+              render: (_, e) => {
+                const s = rosterStudent(e.student_id);
+                return s ? `${s.first_name} ${s.last_name}` : "—";
+              },
+            },
+            {
+              title: "Matricule",
+              key: "student_number",
+              render: (_, e) => rosterStudent(e.student_id)?.student_number || "—",
+            },
+            {
+              title: "Genre",
+              key: "gender",
+              render: (_, e) => rosterStudent(e.student_id)?.gender || "—",
+            },
+            {
+              title: "Date de naissance",
+              key: "date_of_birth",
+              render: (_, e) => rosterStudent(e.student_id)?.date_of_birth || "—",
+            },
+            { title: "N° d'inscription", dataIndex: "registration_number", render: (v) => v || "—" },
+          ]}
+        />
+        {!rosterLoading && (
+          <Typography.Text type="secondary" className="text-xs">
+            {rosterEnrollments.length} élève(s) activement inscrit(s)
+          </Typography.Text>
+        )}
       </Modal>
     </>
   );
