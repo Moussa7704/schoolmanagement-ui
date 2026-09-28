@@ -17,8 +17,10 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useMessage } from "@/hooks/useMessage";
 import { dashboardApi } from "@/api/resources";
-import type { ClassBreakdown, DashboardStats, PlatformSchoolBreakdown, TuitionSummary } from "@/types/models";
+import type { ClassBreakdown, CycleBreakdown, DashboardStats, PlatformSchoolBreakdown, TuitionSummary } from "@/types/models";
 import { getErrorMessage } from "@/lib/errors";
+import { CYCLE_LABELS } from "@/lib/cycles";
+import BarChart from "@/components/common/BarChart";
 
 const formatAmount = (v: number) => `${v.toLocaleString("fr-FR")} CFA`;
 const formatRate = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
@@ -113,6 +115,45 @@ function ClassBreakdownTable({ classes }: { classes: ClassBreakdown[] }) {
         },
       ]}
     />
+  );
+}
+
+function CycleCharts({ cycles }: { cycles: CycleBreakdown[] }) {
+  if (cycles.length === 0) {
+    return <Typography.Text type="secondary">Aucune classe pour l&apos;année scolaire courante.</Typography.Text>;
+  }
+
+  const cycleLabel = (c: CycleBreakdown) => (c.cycle ? CYCLE_LABELS[c.cycle] : "Non classé");
+
+  const studentsData = cycles.map((c) => ({
+    key: c.cycle ?? "none",
+    label: cycleLabel(c),
+    value: c.students_count,
+    tooltip: `${cycleLabel(c)} : ${c.students_count} élève(s) sur ${c.classes_count} classe(s)`,
+  }));
+
+  const attendanceData = cycles
+    .filter((c) => c.attendance_rate !== null)
+    .map((c) => ({
+      key: c.cycle ?? "none",
+      label: cycleLabel(c),
+      value: Math.round((c.attendance_rate ?? 0) * 100),
+      tooltip: `${cycleLabel(c)} : ${Math.round((c.attendance_rate ?? 0) * 100)}% de présence`,
+    }));
+
+  return (
+    <Row gutter={16} className="mt-4">
+      <Col xs={24} sm={12}>
+        <Card size="small" title="Élèves par cycle">
+          <BarChart data={studentsData} />
+        </Card>
+      </Col>
+      <Col xs={24} sm={12}>
+        <Card size="small" title="Taux de présence par cycle">
+          <BarChart data={attendanceData} valueFormatter={(v) => `${v}%`} emptyLabel="Aucune présence enregistrée" />
+        </Card>
+      </Col>
+    </Row>
   );
 }
 
@@ -222,6 +263,9 @@ export default function DashboardHomePage() {
 
           <Typography.Title level={5} className="mt-6">Scolarité{stats.academic_year ? ` — ${stats.academic_year.label}` : ""}</Typography.Title>
           <TuitionCards tuition={stats.tuition} />
+
+          <Typography.Title level={5} className="mt-6">Répartition par cycle</Typography.Title>
+          <CycleCharts cycles={stats.cycles} />
 
           <Typography.Title level={5} className="mt-6">Détail par classe</Typography.Title>
           {stats.classes.length === 0 ? (

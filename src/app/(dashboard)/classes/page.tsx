@@ -11,22 +11,10 @@ import { academicYearsApi, classesApi, enrollmentsApi, studentsApi, type CreateC
 import type { AcademicYear, Class, EducationCycle, Enrollment, EnrollmentStatus, Student } from "@/types/models";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
+import { CYCLE_LABELS, CYCLE_OPTIONS } from "@/lib/cycles";
 import { getErrorMessage } from "@/lib/errors";
 
 type PromotionStatus = Extract<EnrollmentStatus, "ACTIVE" | "REPEATING">;
-
-const CYCLE_LABELS: Record<EducationCycle, string> = {
-  PRESCOLAIRE: "Préscolaire / Maternelle",
-  PRIMAIRE: "Primaire",
-  COLLEGE: "Collège",
-  LYCEE: "Lycée",
-  SUPERIEUR: "Supérieur",
-};
-
-const CYCLE_OPTIONS = (Object.keys(CYCLE_LABELS) as EducationCycle[]).map((value) => ({
-  label: CYCLE_LABELS[value],
-  value,
-}));
 
 interface PromotionRowState {
   target_class_id?: number;

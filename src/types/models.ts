@@ -300,6 +300,13 @@ export interface ClassBreakdown {
   report_cards: { validated_count: number; draft_count: number };
 }
 
+export interface CycleBreakdown {
+  cycle: EducationCycle | null;
+  classes_count: number;
+  students_count: number;
+  attendance_rate: number | null;
+}
+
 export interface SchoolDashboardStats {
   scope: "school";
   school: { id: number; name: string } | null;
@@ -312,6 +319,7 @@ export interface SchoolDashboardStats {
   tuition: TuitionSummary;
   report_cards: { validated_count: number; draft_count: number };
   classes: ClassBreakdown[];
+  cycles: CycleBreakdown[];
 }
 
 export interface PlatformSchoolBreakdown {
