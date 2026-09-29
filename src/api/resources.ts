@@ -283,6 +283,10 @@ export const classesApi = {
     const res = await api.post<ApiEnvelope<Enrollment[]>>(`/classes/${id}/promote`, { promotions });
     return res.data.data;
   },
+  /** Liste des élèves inscrits (actifs + redoublants) au format PDF. */
+  exportStudents: async (id: number, filename: string): Promise<void> => {
+    await downloadFile(`/classes/${id}/students/export`, filename);
+  },
 };
 
 export interface CreateEnrollmentPayload {

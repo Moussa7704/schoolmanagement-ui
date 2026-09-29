@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Modal, Select, Table, Typography } from "antd";
+import { Button, Modal, Select, Table, Tooltip, Typography } from "antd";
+import { FilePdfOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
@@ -27,6 +28,7 @@ export default function ClassesPage() {
 
   const [classes, setClasses] = useState<Class[]>([]);
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
+  const [exportingId, setExportingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Class | null>(null);
@@ -226,6 +228,21 @@ export default function ClassesPage() {
     }
   };
 
+  const handleExport = async (record: Class) => {
+    setExportingId(record.id);
+    try {
+      // Même forme de nom que celui proposé par l'API : eleves-6e-A-2026-2027.pdf
+      const slug = (v: string) =>
+        v.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const year = academicYears.find((y) => y.id === record.academic_year_id)?.label;
+      await classesApi.exportStudents(record.id, `eleves-${slug(record.name)}${year ? `-${slug(year)}` : ""}.pdf`);
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec de l'export de la liste des élèves"));
+    } finally {
+      setExportingId(null);
+    }
+  };
+
   const columns: ColumnsType<Class> = [
     { title: "Nom", dataIndex: "name" },
     { title: "Niveau", dataIndex: "level", render: (v) => v || "—" },
@@ -249,6 +266,17 @@ export default function ClassesPage() {
             <Button size="small" onClick={() => openPromote(record)}>
               Promouvoir
             </Button>
+          )}
+          {can(PERMISSIONS.ENROLLMENTS_VIEW) && (
+            <Tooltip title="Exporter la liste des élèves (PDF)">
+              <Button
+                size="small"
+                icon={<FilePdfOutlined />}
+                loading={exportingId === record.id}
+                onClick={() => handleExport(record)}
+                aria-label="Exporter la liste des élèves en PDF"
+              />
+            </Tooltip>
           )}
         </>
       ),
