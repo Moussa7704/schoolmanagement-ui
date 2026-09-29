@@ -25,6 +25,7 @@ import type {
   Subject,
   Teacher,
   TeacherAssignment,
+  TeacherGender,
   TuitionFee,
   User,
 } from "@/types/models";
@@ -180,10 +181,11 @@ export interface CreateTeacherPayload {
   specialty?: string;
   hire_date?: string;
   employee_number?: string;
+  gender?: TeacherGender;
   school_id?: number;
 }
 
-export type UpdateTeacherPayload = Partial<Pick<CreateTeacherPayload, "specialty" | "hire_date" | "employee_number">>;
+export type UpdateTeacherPayload = Partial<Pick<CreateTeacherPayload, "specialty" | "hire_date" | "employee_number" | "gender">>;
 
 export const teachersApi = createResourceApi<Teacher, CreateTeacherPayload, UpdateTeacherPayload>("/teachers");
 
@@ -286,6 +288,10 @@ export const classesApi = {
   /** Liste des élèves inscrits (actifs + redoublants) au format PDF. */
   exportStudents: async (id: number, filename: string): Promise<void> => {
     await downloadFile(`/classes/${id}/students/export`, filename);
+  },
+  /** Emploi du temps de la classe au format PDF (heures en lignes, jours en colonnes). */
+  exportSchedule: async (id: number, filename: string): Promise<void> => {
+    await downloadFile(`/classes/${id}/schedule/export`, filename);
   },
 };
 

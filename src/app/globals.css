@@ -20,6 +20,10 @@ body {
 }
 
 body {
+  /* Sans preflight, le navigateur garde sa marge de 8px sur body : l'en-tête
+     et la barre latérale (sticky, top 0) remontaient alors de 8px au premier
+     défilement. */
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
 }

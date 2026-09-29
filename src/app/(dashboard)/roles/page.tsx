@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Checkbox, Drawer, Space, Table, Tag, Typography } from "antd";
+import { Button, Checkbox, Drawer, Result, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMessage } from "@/hooks/useMessage";
 import { permissionsApi, rolesApi } from "@/api/resources";
@@ -9,10 +9,13 @@ import type { Permission, Role } from "@/types/models";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
+import { useAuth } from "@/hooks/useAuth";
 
 const resourceOf = (permissionName: string) => permissionName.split(".")[0];
 
 export default function RolesPage() {
+  const { user } = useAuth();
+  const isSuperAdmin = user?.Role?.name === "SUPER_ADMIN";
   const message = useMessage();
   const can = usePermission();
 
@@ -35,11 +38,12 @@ export default function RolesPage() {
   };
 
   useEffect(() => {
+    if (!isSuperAdmin) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch-on-mount, not a render-triggered cascade
     loadRoles();
     permissionsApi.list().then(setAllPermissions).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadRoles is a stable mount-time fetch, not meant to re-run when its own closure identity changes
-  }, []);
+  }, [isSuperAdmin]);
 
   const groups = useMemo(() => {
     const map = new Map<string, Permission[]>();
@@ -95,6 +99,11 @@ export default function RolesPage() {
         ),
     },
   ];
+
+  // Menu déjà masqué pour les autres rôles ; ceci couvre l'accès direct par l'URL.
+  if (!isSuperAdmin) {
+    return <Result status="403" title="Accès réservé" subTitle="Cette page est réservée au super administrateur." />;
+  }
 
   return (
     <div>

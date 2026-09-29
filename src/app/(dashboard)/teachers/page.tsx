@@ -7,11 +7,15 @@ import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
 import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
 import { schoolsApi, teachersApi, type CreateTeacherPayload, type UpdateTeacherPayload } from "@/api/resources";
-import type { School, Teacher } from "@/types/models";
+import type { School, Teacher, TeacherGender } from "@/types/models";
 import { useAuth } from "@/hooks/useAuth";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
+
+// Sert à la civilité dans l'emploi du temps (Mr Bamba / Mme Konate).
+const GENDER_LABELS: Record<TeacherGender, string> = { M: "Homme", F: "Femme" };
+const GENDER_OPTIONS = (Object.keys(GENDER_LABELS) as TeacherGender[]).map((value) => ({ label: GENDER_LABELS[value], value }));
 
 export default function TeachersPage() {
   const message = useMessage();
@@ -48,7 +52,7 @@ export default function TeachersPage() {
 
   const schoolOptions = useMemo(() => schools.map((s) => ({ label: s.name, value: s.id })), [schools]);
 
-  // Édition : seuls specialty/hire_date/employee_number sont modifiables (voir
+  // Édition : seuls specialty/hire_date/employee_number/gender sont modifiables (voir
   // service/teacher.service.js#update) — nom/email/mot de passe passent par le
   // compte User sous-jacent, non exposé sur cette route.
   const fields: FormFieldSchema[] = useMemo(() => {
@@ -57,6 +61,7 @@ export default function TeachersPage() {
         { name: "specialty", label: "Spécialité", type: "text" },
         { name: "hire_date", label: "Date d'embauche", type: "date" },
         { name: "employee_number", label: "Matricule", type: "text" },
+        { name: "gender", label: "Genre", type: "select", options: GENDER_OPTIONS },
       ];
     }
 
@@ -69,6 +74,7 @@ export default function TeachersPage() {
       { name: "specialty", label: "Spécialité", type: "text" },
       { name: "hire_date", label: "Date d'embauche", type: "date" },
       { name: "employee_number", label: "Matricule", type: "text" },
+      { name: "gender", label: "Genre", type: "select", options: GENDER_OPTIONS },
     ];
 
     if (isSuperAdmin) {
@@ -123,6 +129,7 @@ export default function TeachersPage() {
       key: "name",
       render: (_, record) => (record.User ? `${record.User.first_name} ${record.User.last_name}` : "—"),
     },
+    { title: "Genre", dataIndex: "gender", render: (v: TeacherGender | null) => (v ? GENDER_LABELS[v] : "—") },
     { title: "Email", key: "email", render: (_, record) => record.User?.email ?? "—" },
     { title: "Spécialité", dataIndex: "specialty", render: (v) => v || "—" },
     { title: "Date d'embauche", dataIndex: "hire_date", render: (v) => v || "—" },

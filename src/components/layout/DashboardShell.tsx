@@ -69,19 +69,38 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
 
   return (
     <Layout className="min-h-screen">
-      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} theme="light" breakpoint="lg">
-        <div className="h-16 flex items-center justify-center font-bold text-lg text-blue-600 overflow-hidden whitespace-nowrap px-2">
-          {collapsed ? sidebarLabelCollapsed : sidebarLabel}
+      {/* Sider collé à la hauteur de l'écran : il ne défile pas avec la page,
+          seul le menu défile quand les modules dépassent la hauteur disponible.
+          Le nom de l'école reste en haut, le bouton de repli en bas. */}
+      <Sider
+        collapsible
+        collapsed={collapsed}
+        onCollapse={setCollapsed}
+        theme="light"
+        breakpoint="lg"
+        style={{ position: "sticky", top: 0, height: "100vh", overflow: "hidden" }}
+      >
+        <div className="flex h-full flex-col">
+          <div className="h-16 shrink-0 flex items-center justify-center font-bold text-lg text-blue-600 overflow-hidden whitespace-nowrap px-2">
+            {collapsed ? sidebarLabelCollapsed : sidebarLabel}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+            <Menu
+              mode="inline"
+              selectedKeys={[selectedKey]}
+              items={menuItems}
+              onClick={({ key }) => router.push(key)}
+            />
+          </div>
         </div>
-        <Menu
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          items={menuItems}
-          onClick={({ key }) => router.push(key)}
-        />
       </Sider>
       <Layout>
-        <Header className="!bg-white flex items-center justify-end px-6 shadow-sm">
+        {/* En-tête collé en haut : reste visible pendant que le contenu défile.
+            zIndex au-dessus du contenu (tableaux, graphiques) qui passe dessous. */}
+        <Header
+          className="!bg-white flex items-center justify-end px-6 shadow-sm"
+          style={{ position: "sticky", top: 0, zIndex: 10, width: "100%" }}
+        >
           <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} trigger={["click"]}>
             <Space className="cursor-pointer select-none">
               <Avatar icon={<UserOutlined />} />

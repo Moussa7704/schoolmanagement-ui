@@ -52,9 +52,10 @@ export const NAV_ITEMS: NavItem[] = [
   { key: "dashboard", label: "Tableau de bord", path: "/", icon: DashboardOutlined, permission: null, implemented: true },
   { key: "users", label: "Utilisateurs", path: "/users", icon: TeamOutlined, permission: PERMISSIONS.USERS_VIEW, implemented: true },
   { key: "students", label: "Élèves", path: "/students", icon: IdcardOutlined, permission: PERMISSIONS.STUDENTS_VIEW, implemented: true },
-  { key: "roles", label: "Rôles", path: "/roles", icon: SafetyCertificateOutlined, permission: PERMISSIONS.ROLES_VIEW, implemented: true },
+  // Rôles et Permissions : administration de la plateforme, réservée au SUPER_ADMIN.
+  { key: "roles", label: "Rôles", path: "/roles", icon: SafetyCertificateOutlined, permission: PERMISSIONS.ROLES_VIEW, implemented: true, onlyForRoles: ["SUPER_ADMIN"] },
   // routes/permission.js gate le catalogue sur ROLES_VIEW (pas PERMISSIONS_MANAGE) côté backend — reflété ici à l'identique.
-  { key: "permissions", label: "Permissions", path: "/permissions", icon: KeyOutlined, permission: PERMISSIONS.ROLES_VIEW, implemented: true },
+  { key: "permissions", label: "Permissions", path: "/permissions", icon: KeyOutlined, permission: PERMISSIONS.ROLES_VIEW, implemented: true, onlyForRoles: ["SUPER_ADMIN"] },
   { key: "schools", label: "Écoles", path: "/schools", icon: BankOutlined, permission: PERMISSIONS.SCHOOLS_VIEW, implemented: true },
   { key: "academic-years", label: "Années scolaires", path: "/academic-years", icon: CalendarOutlined, permission: PERMISSIONS.ACADEMIC_YEARS_VIEW, implemented: true },
   { key: "periods", label: "Périodes", path: "/periods", icon: ScheduleOutlined, permission: PERMISSIONS.PERIODS_VIEW, implemented: true },

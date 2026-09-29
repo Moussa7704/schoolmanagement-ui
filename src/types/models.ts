@@ -103,9 +103,13 @@ export interface Teacher {
   specialty: string | null;
   hire_date: string | null;
   employee_number: string | null;
+  /** Civilité dans l'emploi du temps : "M" → Mr, "F" → Mme. */
+  gender: TeacherGender | null;
   User?: User;
   School?: School;
 }
+
+export type TeacherGender = "M" | "F";
 
 export interface Guardian {
   id: number;
