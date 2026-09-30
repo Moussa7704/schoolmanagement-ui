@@ -123,6 +123,7 @@ export interface CreateSchoolPayload {
   address?: string;
   phone?: string;
   email?: string;
+  academy?: string;
 }
 
 export type UpdateSchoolPayload = Partial<CreateSchoolPayload>;
@@ -188,7 +189,24 @@ export interface CreateTeacherPayload {
 
 export type UpdateTeacherPayload = Partial<Pick<CreateTeacherPayload, "specialty" | "hire_date" | "employee_number" | "gender">>;
 
-export const teachersApi = createResourceApi<Teacher, CreateTeacherPayload, UpdateTeacherPayload>("/teachers");
+/** Espace de l'enseignant connecté : seulement ses classes, matières, périodes et élèves. */
+export interface TeacherWorkspace {
+  teacher: Teacher;
+  assignments: TeacherAssignment[];
+  classes: Class[];
+  subjects: Subject[];
+  periods: Period[];
+  students: Student[];
+  enrollments: Enrollment[];
+}
+
+export const teachersApi = {
+  ...createResourceApi<Teacher, CreateTeacherPayload, UpdateTeacherPayload>("/teachers"),
+  myClasses: async (): Promise<TeacherWorkspace> => {
+    const res = await api.get<ApiEnvelope<TeacherWorkspace>>("/teachers/me/classes");
+    return res.data.data;
+  },
+};
 
 export interface CreateGuardianPayload {
   first_name: string;

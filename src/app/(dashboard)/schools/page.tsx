@@ -17,6 +17,13 @@ import { getErrorMessage } from "@/lib/errors";
 
 const FIELDS: FormFieldSchema[] = [
   { name: "name", label: "Nom", type: "text", required: true },
+  // Imprimée dans l'en-tête officiel des bulletins, sous « Ministère de l'Éducation Nationale ».
+  {
+    name: "academy",
+    label: "Académie d'enseignement",
+    type: "text",
+    placeholder: "Académie d'Enseignement de Bamako Rive Droite",
+  },
   { name: "address", label: "Adresse", type: "text" },
   { name: "phone", label: "Téléphone", type: "text" },
   { name: "email", label: "Email", type: "email" },
@@ -104,6 +111,7 @@ export default function SchoolsPage() {
 
   const columns: ColumnsType<School> = [
     { title: "Nom", dataIndex: "name" },
+    { title: "Académie", dataIndex: "academy", render: (v) => v || "—" },
     { title: "Adresse", dataIndex: "address", render: (v) => v || "—" },
     { title: "Téléphone", dataIndex: "phone", render: (v) => v || "—" },
     { title: "Email", dataIndex: "email", render: (v) => v || "—" },

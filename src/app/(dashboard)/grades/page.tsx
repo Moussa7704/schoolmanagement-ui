@@ -15,8 +15,10 @@ import {
   studentsApi,
   subjectsApi,
   teacherAssignmentsApi,
+  teachersApi,
   type CreateGradePayload,
 } from "@/api/resources";
+import { useAuth } from "@/hooks/useAuth";
 import type { Assessment, Class, Enrollment, Grade, Student, Subject, TeacherAssignment } from "@/types/models";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
@@ -30,6 +32,8 @@ const PRESENT_STATUSES: Enrollment["status"][] = ["ACTIVE", "REPEATING"];
 export default function GradesPage() {
   const message = useMessage();
   const can = usePermission();
+  const { user } = useAuth();
+  const isTeacher = user?.Role?.name === "TEACHER";
 
   const [grades, setGrades] = useState<Grade[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -59,22 +63,38 @@ export default function GradesPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch-on-mount, not a render-triggered cascade
     loadGrades();
     assessmentsApi.list().then(setAssessments).catch(() => {});
-    studentsApi.list().then(setStudents).catch(() => {});
-    classesApi.list().then(setClasses).catch(() => {});
-    teacherAssignmentsApi.list().then(setAssignments).catch(() => {});
-    subjectsApi.list().then(setSubjects).catch(() => {});
+    if (isTeacher) {
+      // Un enseignant ne lit pas les listes générales de l'école : son espace
+      // ne contient que ses classes, ses matières et les élèves de ses classes.
+      teachersApi
+        .myClasses()
+        .then((workspace) => {
+          setClasses(workspace.classes);
+          setAssignments(workspace.assignments);
+          setSubjects(workspace.subjects);
+          setStudents(workspace.students);
+          setClassEnrollments(workspace.enrollments);
+        })
+        .catch((err) => message.error(getErrorMessage(err, "Échec du chargement de vos classes")));
+    } else {
+      studentsApi.list().then(setStudents).catch(() => {});
+      classesApi.list().then(setClasses).catch(() => {});
+      teacherAssignmentsApi.list().then(setAssignments).catch(() => {});
+      subjectsApi.list().then(setSubjects).catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadGrades is a stable mount-time fetch, not meant to re-run when its own closure identity changes
-  }, []);
+  }, [isTeacher]);
 
-  // Élèves inscrits dans la classe choisie, rechargés à chaque changement de classe.
+  // Élèves inscrits dans la classe choisie, rechargés à chaque changement de
+  // classe (un enseignant les a déjà tous reçus avec son espace).
   useEffect(() => {
-    if (!classId) return;
+    if (!classId || isTeacher) return;
     enrollmentsApi
       .list({ class_id: classId })
       .then(setClassEnrollments)
       .catch((err) => message.error(getErrorMessage(err, "Échec du chargement des élèves de la classe")));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `message` is a stable App.useApp() instance
-  }, [classId]);
+  }, [classId, isTeacher]);
 
   // Classes proposées : celles qui ont au moins une matière affectée (un
   // enseignant ne reçoit que ses propres affectations, donc ses classes).
@@ -232,7 +252,8 @@ export default function GradesPage() {
               options={classOptions}
               value={classId}
               onChange={(value: number) => {
-                setClassEnrollments([]);
+                // Un enseignant garde les inscriptions reçues avec son espace.
+                if (!isTeacher) setClassEnrollments([]);
                 setClassId(value);
               }}
             />

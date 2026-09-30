@@ -29,6 +29,8 @@ export interface School {
   address: string | null;
   phone: string | null;
   email: string | null;
+  /** Académie d'enseignement, imprimée dans l'en-tête des bulletins. */
+  academy: string | null;
 }
 
 export interface AuthUser {

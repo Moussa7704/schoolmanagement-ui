@@ -19,6 +19,7 @@ import {
 } from "@/api/resources";
 import type { Assessment, AssessmentType, Class, Period, Subject, Teacher, TeacherAssignment } from "@/types/models";
 import { usePermission } from "@/hooks/usePermission";
+import { useAuth } from "@/hooks/useAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
 import { ASSESSMENT_TYPE_LABELS, ASSESSMENT_TYPE_OPTIONS } from "@/lib/assessments";
@@ -28,6 +29,8 @@ const TYPE_COLORS: Record<AssessmentType, string> = { DEVOIR: "blue", COMPOSITIO
 export default function AssessmentsPage() {
   const message = useMessage();
   const can = usePermission();
+  const { user } = useAuth();
+  const isTeacher = user?.Role?.name === "TEACHER";
 
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>([]);
@@ -54,13 +57,28 @@ export default function AssessmentsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch-on-mount, not a render-triggered cascade
     loadAssessments();
-    teacherAssignmentsApi.list().then(setTeacherAssignments).catch(() => {});
-    teachersApi.list().then(setTeachers).catch(() => {});
-    classesApi.list().then(setClasses).catch(() => {});
-    subjectsApi.list().then(setSubjects).catch(() => {});
-    periodsApi.list().then(setPeriods).catch(() => {});
+    if (isTeacher) {
+      // Un enseignant ne lit pas les listes générales de l'école : son espace
+      // contient ses affectations, ses classes, ses matières et les périodes.
+      teachersApi
+        .myClasses()
+        .then((workspace) => {
+          setTeacherAssignments(workspace.assignments);
+          setTeachers([workspace.teacher]);
+          setClasses(workspace.classes);
+          setSubjects(workspace.subjects);
+          setPeriods(workspace.periods);
+        })
+        .catch((err) => message.error(getErrorMessage(err, "Échec du chargement de vos classes")));
+    } else {
+      teacherAssignmentsApi.list().then(setTeacherAssignments).catch(() => {});
+      teachersApi.list().then(setTeachers).catch(() => {});
+      classesApi.list().then(setClasses).catch(() => {});
+      subjectsApi.list().then(setSubjects).catch(() => {});
+      periodsApi.list().then(setPeriods).catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAssessments is a stable mount-time fetch, not meant to re-run when its own closure identity changes
-  }, []);
+  }, [isTeacher]);
 
   const teacherAssignmentLabel = (id: number) => {
     const ta = teacherAssignments.find((a) => a.id === id);
@@ -69,14 +87,15 @@ export default function AssessmentsPage() {
     const teacherName = teacher?.User ? `${teacher.User.first_name} ${teacher.User.last_name}` : `#${ta.teacher_id}`;
     const className = classes.find((c) => c.id === ta.class_id)?.name ?? `#${ta.class_id}`;
     const subjectName = subjects.find((s) => s.id === ta.subject_id)?.name ?? `#${ta.subject_id}`;
-    return `${teacherName} — ${className} — ${subjectName}`;
+    // L'enseignant connecté n'a pas besoin de relire son propre nom.
+    return isTeacher ? `${className} — ${subjectName}` : `${teacherName} — ${className} — ${subjectName}`;
   };
   const periodLabel = (id: number) => periods.find((p) => p.id === id)?.label ?? "—";
 
   const teacherAssignmentOptions = useMemo(
     () => teacherAssignments.map((ta) => ({ label: teacherAssignmentLabel(ta.id), value: ta.id })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [teacherAssignments, teachers, classes, subjects]
+    [teacherAssignments, teachers, classes, subjects, isTeacher]
   );
   const periodOptions = useMemo(() => periods.map((p) => ({ label: p.label, value: p.id })), [periods]);
 
@@ -92,7 +111,9 @@ export default function AssessmentsPage() {
     return [
       {
         name: "teacher_assignment_id",
-        label: "Affectation (enseignant/classe/matière)",
+        // L'enseignant connecté choisit parmi ses propres classes-matières :
+        // inutile de lui faire relire son nom dans le libellé.
+        label: isTeacher ? "Affectation (classe/matière)" : "Affectation (enseignant/classe/matière)",
         type: "select",
         required: true,
         options: teacherAssignmentOptions,
@@ -100,7 +121,7 @@ export default function AssessmentsPage() {
       { name: "period_id", label: "Période", type: "select", required: true, options: periodOptions },
       ...common,
     ];
-  }, [editing, teacherAssignmentOptions, periodOptions]);
+  }, [editing, teacherAssignmentOptions, periodOptions, isTeacher]);
 
   const openCreate = () => {
     setEditing(null);

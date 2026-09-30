@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Descriptions, Form, Modal, Select, Tag } from "antd";
+import { Button, Descriptions, Form, Modal, Select, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
@@ -10,13 +10,16 @@ import type { FormFieldSchema } from "@/components/common/form-field";
 import {
   attendancesApi,
   classesApi,
+  enrollmentsApi,
   periodsApi,
   studentsApi,
+  teachersApi,
   type CreateAttendancePayload,
   type UpdateAttendancePayload,
 } from "@/api/resources";
-import type { Attendance, AttendanceStats, AttendanceStatus, Class, Period, Student } from "@/types/models";
+import type { Attendance, AttendanceStats, AttendanceStatus, Class, Enrollment, Period, Student } from "@/types/models";
 import { usePermission } from "@/hooks/usePermission";
+import { useAuth } from "@/hooks/useAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -25,22 +28,26 @@ const SESSION_OPTIONS = [
   { label: "Après-midi", value: "AFTERNOON" },
 ];
 
-const STATUS_OPTIONS = [
-  { label: "Présent", value: "PRESENT" },
-  { label: "Absent", value: "ABSENT" },
-  { label: "Retard", value: "LATE" },
-];
-
+const STATUS_LABELS: Record<AttendanceStatus, string> = { PRESENT: "Présent", ABSENT: "Absent", LATE: "Retard" };
+const STATUS_OPTIONS = (Object.keys(STATUS_LABELS) as AttendanceStatus[]).map((value) => ({ label: STATUS_LABELS[value], value }));
 const STATUS_COLORS: Record<AttendanceStatus, string> = { PRESENT: "green", ABSENT: "red", LATE: "gold" };
+
+// Élèves réellement dans la classe : un redoublant y est inscrit comme les
+// autres, un transféré ou un retiré n'y est plus.
+const PRESENT_STATUSES: Enrollment["status"][] = ["ACTIVE", "REPEATING"];
 
 export default function AttendancesPage() {
   const message = useMessage();
   const can = usePermission();
+  const { user } = useAuth();
+  const isTeacher = user?.Role?.name === "TEACHER";
 
   const [attendances, setAttendances] = useState<Attendance[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<Class[]>([]);
   const [periods, setPeriods] = useState<Period[]>([]);
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [classId, setClassId] = useState<number | undefined>();
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<Attendance | null>(null);
@@ -64,21 +71,63 @@ export default function AttendancesPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch-on-mount, not a render-triggered cascade
     loadAttendances();
-    studentsApi.list().then(setStudents).catch(() => {});
-    classesApi.list().then(setClasses).catch(() => {});
-    periodsApi.list().then(setPeriods).catch(() => {});
+    if (isTeacher) {
+      // Un enseignant ne lit pas les listes générales de l'école : son espace
+      // contient ses classes, les élèves de ses classes et les périodes.
+      teachersApi
+        .myClasses()
+        .then((workspace) => {
+          setClasses(workspace.classes);
+          setStudents(workspace.students);
+          setPeriods(workspace.periods);
+          setEnrollments(workspace.enrollments);
+        })
+        .catch((err) => message.error(getErrorMessage(err, "Échec du chargement de vos classes")));
+    } else {
+      studentsApi.list().then(setStudents).catch(() => {});
+      classesApi.list().then(setClasses).catch(() => {});
+      periodsApi.list().then(setPeriods).catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadAttendances is a stable mount-time fetch, not meant to re-run when its own closure identity changes
-  }, []);
+  }, [isTeacher]);
 
-  const studentOptions = useMemo(
-    () => students.map((s) => ({ label: `${s.first_name} ${s.last_name}`, value: s.id })),
-    [students]
+  // Inscriptions de la classe choisie (un enseignant les a déjà reçues avec son espace).
+  useEffect(() => {
+    if (!classId || isTeacher) return;
+    enrollmentsApi
+      .list({ class_id: classId })
+      .then(setEnrollments)
+      .catch((err) => message.error(getErrorMessage(err, "Échec du chargement des élèves de la classe")));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `message` is a stable App.useApp() instance
+  }, [classId, isTeacher]);
+
+  const classOptions = useMemo(
+    () => classes.map((c) => ({ label: c.name, value: c.id })).sort((a, b) => a.label.localeCompare(b.label, "fr")),
+    [classes]
   );
-  const classOptions = useMemo(() => classes.map((c) => ({ label: c.name, value: c.id })), [classes]);
   const periodOptions = useMemo(() => periods.map((p) => ({ label: p.label, value: p.id })), [periods]);
+
+  // Élèves inscrits dans la classe choisie, triés par nom.
+  const studentOptions = useMemo(() => {
+    if (!classId) return [];
+    const enrolledIds = new Set(
+      enrollments.filter((e) => e.class_id === classId && PRESENT_STATUSES.includes(e.status)).map((e) => e.student_id)
+    );
+    return students
+      .filter((s) => enrolledIds.has(s.id))
+      .map((s) => ({ label: `${s.last_name} ${s.first_name}`, value: s.id }))
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  }, [classId, enrollments, students]);
+
+  // Tableau : seulement les présences de la classe choisie.
+  const visibleAttendances = useMemo(
+    () => (classId ? attendances.filter((a) => a.class_id === classId) : attendances),
+    [attendances, classId]
+  );
+
   const studentLabel = (id: number) => {
     const s = students.find((s) => s.id === id);
-    return s ? `${s.first_name} ${s.last_name}` : "—";
+    return s ? `${s.last_name} ${s.first_name}` : "—";
   };
   const classLabel = (id: number) => classes.find((c) => c.id === id)?.name ?? "—";
 
@@ -91,15 +140,22 @@ export default function AttendancesPage() {
       ];
     }
     return [
+      // Classe déjà choisie dans la barre d'outils : pré-remplie, une seule option.
+      {
+        name: "class_id",
+        label: "Classe",
+        type: "select",
+        required: true,
+        options: classOptions.filter((c) => c.value === classId),
+      },
       { name: "student_id", label: "Élève", type: "select", required: true, options: studentOptions },
-      { name: "class_id", label: "Classe", type: "select", required: true, options: classOptions },
       { name: "date", label: "Date", type: "date", required: true },
       { name: "session", label: "Séance", type: "select", required: true, options: SESSION_OPTIONS },
       { name: "status", label: "Statut", type: "select", options: STATUS_OPTIONS },
       { name: "justified", label: "Justifiée", type: "switch" },
       { name: "reason", label: "Motif", type: "text" },
     ];
-  }, [editing, studentOptions, classOptions]);
+  }, [editing, studentOptions, classOptions, classId]);
 
   const openCreate = () => {
     setEditing(null);
@@ -163,7 +219,11 @@ export default function AttendancesPage() {
       dataIndex: "session",
       render: (v) => (v === "MORNING" ? "Matin" : "Après-midi"),
     },
-    { title: "Statut", dataIndex: "status", render: (v: AttendanceStatus) => <Tag color={STATUS_COLORS[v]}>{v}</Tag> },
+    {
+      title: "Statut",
+      dataIndex: "status",
+      render: (v: AttendanceStatus) => <Tag color={STATUS_COLORS[v]}>{STATUS_LABELS[v] ?? v}</Tag>,
+    },
     { title: "Justifiée", dataIndex: "justified", render: (v: boolean) => (v ? "Oui" : "Non") },
     { title: "Motif", dataIndex: "reason", render: (v) => v || "—" },
     buildActionsColumn<Attendance>({
@@ -176,21 +236,44 @@ export default function AttendancesPage() {
     <>
       <CrudTable<Attendance>
         title="Présences"
-        data={attendances}
+        data={visibleAttendances}
         loading={loading}
         rowKey={(r) => r.id}
         columns={columns}
         onCreate={openCreate}
-        canCreate={can(PERMISSIONS.ATTENDANCES_CREATE)}
+        // La saisie commence par le choix de la classe : sans elle, on ne sait
+        // pas quels élèves proposer.
+        canCreate={can(PERMISSIONS.ATTENDANCES_CREATE) && !!classId}
         extraActions={
-          <Button
-            onClick={() => {
-              setStats(null);
-              setStatsModalOpen(true);
-            }}
-          >
-            Statistiques
-          </Button>
+          <>
+            <Select
+              showSearch
+              optionFilterProp="label"
+              placeholder="Choisir une classe"
+              style={{ width: 220 }}
+              options={classOptions}
+              value={classId}
+              onChange={(value: number) => {
+                // Un enseignant garde les inscriptions reçues avec son espace.
+                if (!isTeacher) setEnrollments([]);
+                setClassId(value);
+                statsForm.resetFields();
+                setStats(null);
+              }}
+            />
+            {!classId && can(PERMISSIONS.ATTENDANCES_CREATE) && (
+              <Typography.Text type="secondary">Choisissez une classe pour saisir des présences</Typography.Text>
+            )}
+            <Button
+              disabled={!classId}
+              onClick={() => {
+                setStats(null);
+                setStatsModalOpen(true);
+              }}
+            >
+              Statistiques
+            </Button>
+          </>
         }
       />
 
@@ -198,7 +281,7 @@ export default function AttendancesPage() {
         open={drawerOpen}
         title={editing ? "Modifier la présence" : "Nouvelle présence"}
         fields={fields}
-        initialValues={editing ?? undefined}
+        initialValues={editing ?? (classId ? { class_id: classId } : undefined)}
         submitting={submitting}
         onClose={() => setDrawerOpen(false)}
         onSubmit={handleSubmit}
@@ -216,7 +299,7 @@ export default function AttendancesPage() {
       >
         <Form form={statsForm} layout="vertical">
           <Form.Item name="student_id" label="Élève" rules={[{ required: true, message: "Élève requis" }]}>
-            <Select options={studentOptions} placeholder="Sélectionner un élève" />
+            <Select showSearch optionFilterProp="label" options={studentOptions} placeholder="Sélectionner un élève" />
           </Form.Item>
           <Form.Item name="period_id" label="Période" rules={[{ required: true, message: "Période requise" }]}>
             <Select options={periodOptions} placeholder="Sélectionner une période" />
