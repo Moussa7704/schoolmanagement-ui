@@ -184,7 +184,7 @@ export interface Schedule {
   TeacherAssignment?: TeacherAssignment;
 }
 
-export type AssessmentType = "DEVOIR" | "EXAMEN";
+export type AssessmentType = "DEVOIR" | "COMPOSITION";
 
 export interface Assessment {
   id: number;

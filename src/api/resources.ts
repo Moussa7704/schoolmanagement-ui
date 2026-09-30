@@ -3,6 +3,7 @@ import type { ApiEnvelope } from "@/types/api";
 import type {
   AcademicYear,
   Assessment,
+  AssessmentType,
   Attendance,
   AttendanceStats,
   Class,
@@ -358,7 +359,7 @@ export interface CreateAssessmentPayload {
   teacher_assignment_id: number;
   period_id: number;
   name: string;
-  type?: "DEVOIR" | "EXAMEN";
+  type?: AssessmentType;
   coefficient?: number;
   max_score?: number;
   date?: string;

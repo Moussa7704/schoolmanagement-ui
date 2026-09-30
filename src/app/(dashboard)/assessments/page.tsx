@@ -21,13 +21,9 @@ import type { Assessment, AssessmentType, Class, Period, Subject, Teacher, Teach
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
+import { ASSESSMENT_TYPE_LABELS, ASSESSMENT_TYPE_OPTIONS } from "@/lib/assessments";
 
-const TYPE_OPTIONS = [
-  { label: "Devoir", value: "DEVOIR" },
-  { label: "Examen", value: "EXAMEN" },
-];
-
-const TYPE_COLORS: Record<AssessmentType, string> = { DEVOIR: "blue", EXAMEN: "red" };
+const TYPE_COLORS: Record<AssessmentType, string> = { DEVOIR: "blue", COMPOSITION: "purple" };
 
 export default function AssessmentsPage() {
   const message = useMessage();
@@ -87,7 +83,7 @@ export default function AssessmentsPage() {
   const fields: FormFieldSchema[] = useMemo(() => {
     const common: FormFieldSchema[] = [
       { name: "name", label: "Nom", type: "text", required: true, placeholder: "Contrôle continu 1" },
-      { name: "type", label: "Type", type: "select", options: TYPE_OPTIONS },
+      { name: "type", label: "Type", type: "select", options: ASSESSMENT_TYPE_OPTIONS },
       { name: "coefficient", label: "Coefficient", type: "number" },
       { name: "max_score", label: "Note maximale", type: "number" },
       { name: "date", label: "Date", type: "date" },
@@ -147,7 +143,11 @@ export default function AssessmentsPage() {
 
   const columns: ColumnsType<Assessment> = [
     { title: "Nom", dataIndex: "name" },
-    { title: "Type", dataIndex: "type", render: (v: AssessmentType) => <Tag color={TYPE_COLORS[v]}>{v}</Tag> },
+    {
+      title: "Type",
+      dataIndex: "type",
+      render: (v: AssessmentType) => <Tag color={TYPE_COLORS[v]}>{ASSESSMENT_TYPE_LABELS[v] ?? v}</Tag>,
+    },
     {
       title: "Affectation",
       key: "teacher_assignment",
