@@ -410,6 +410,14 @@ export const reportCardsApi = {
   remove: async (id: number): Promise<void> => {
     await api.delete<ApiEnvelope<null>>(`/report-cards/${id}`);
   },
+  /** Bulletin imprimable (PDF A4) généré par l'API. */
+  downloadPdf: async (id: number, filename: string): Promise<void> => {
+    await downloadFile(`/report-cards/${id}/pdf`, filename);
+  },
+  /** Tous les bulletins d'une classe pour une période, deux par feuille A4. */
+  downloadClassPdf: async (classId: number, periodId: number, filename: string): Promise<void> => {
+    await downloadFile(`/report-cards/class-pdf?class_id=${classId}&period_id=${periodId}`, filename);
+  },
 };
 
 export interface CreateAttendancePayload {

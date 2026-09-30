@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Descriptions, Divider, Modal, Popconfirm, Select, Space, Table, Tag, Typography } from "antd";
-import { PrinterOutlined } from "@ant-design/icons";
+import { Button, Descriptions, Divider, Modal, Popconfirm, Select, Space, Table, Tag, Tooltip, Typography } from "antd";
+import { FilePdfOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useMessage } from "@/hooks/useMessage";
 import CrudTable, { buildActionsColumn } from "@/components/common/CrudTable";
@@ -23,6 +23,10 @@ import { getErrorMessage } from "@/lib/errors";
 
 const STATUS_COLORS: Record<ReportCardStatus, string> = { DRAFT: "gold", VALIDATED: "green" };
 
+// 12.666 -> "12,67" comme sur le bulletin papier ; vide -> "—"
+const formatGrade = (value: number | null | undefined) =>
+  value === null || value === undefined ? "—" : value.toFixed(2).replace(".", ",");
+
 export default function ReportCardsPage() {
   const message = useMessage();
   const can = usePermission();
@@ -37,6 +41,8 @@ export default function ReportCardsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [detail, setDetail] = useState<ReportCardDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [classPdfLoading, setClassPdfLoading] = useState(false);
   const [filterPeriodId, setFilterPeriodId] = useState<number | undefined>();
   const [filterClassId, setFilterClassId] = useState<number | undefined>();
 
@@ -121,6 +127,40 @@ export default function ReportCardsPage() {
     }
   };
 
+  const handleDownloadPdf = async (record: ReportCard) => {
+    setDownloadingId(record.id);
+    try {
+      const slug = (v: string) =>
+        v.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      await reportCardsApi.downloadPdf(
+        record.id,
+        `bulletin-${slug(studentLabel(record.student_id))}-${slug(periodLabel(record.period_id))}.pdf`
+      );
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec du téléchargement du bulletin"));
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDownloadClassPdf = async () => {
+    if (!filterClassId || !filterPeriodId) return;
+    setClassPdfLoading(true);
+    try {
+      const slug = (v: string) =>
+        v.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      await reportCardsApi.downloadClassPdf(
+        filterClassId,
+        filterPeriodId,
+        `bulletins-${slug(classLabel(filterClassId))}-${slug(periodLabel(filterPeriodId))}.pdf`
+      );
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec de l'impression des bulletins de la classe"));
+    } finally {
+      setClassPdfLoading(false);
+    }
+  };
+
   const handleShowDetail = async (record: ReportCard) => {
     setDetailLoading(true);
     try {
@@ -145,6 +185,15 @@ export default function ReportCardsPage() {
           <Button size="small" loading={detailLoading} onClick={() => handleShowDetail(record)}>
             Détails
           </Button>
+          <Tooltip title="Télécharger le bulletin (PDF)">
+            <Button
+              size="small"
+              icon={<FilePdfOutlined />}
+              loading={downloadingId === record.id}
+              onClick={() => handleDownloadPdf(record)}
+              aria-label="Télécharger le bulletin en PDF"
+            />
+          </Tooltip>
           {record.status === "DRAFT" && can(PERMISSIONS.REPORT_CARDS_VALIDATE) && (
             <Popconfirm title="Valider ce bulletin ?" okText="Oui" cancelText="Non" onConfirm={() => handleValidate(record)}>
               <Button size="small">Valider</Button>
@@ -183,6 +232,22 @@ export default function ReportCardsPage() {
               value={filterClassId}
               onChange={setFilterClassId}
             />
+            <Tooltip
+              title={
+                filterClassId && filterPeriodId
+                  ? "Tous les bulletins de la classe, deux par feuille A4 (à découper)"
+                  : "Choisissez d'abord une période et une classe"
+              }
+            >
+              <Button
+                icon={<FilePdfOutlined />}
+                disabled={!filterClassId || !filterPeriodId}
+                loading={classPdfLoading}
+                onClick={handleDownloadClassPdf}
+              >
+                Imprimer la classe
+              </Button>
+            </Tooltip>
           </Space>
         }
       />
@@ -200,11 +265,18 @@ export default function ReportCardsPage() {
         title="Bulletin scolaire"
         open={!!detail}
         onCancel={() => setDetail(null)}
-        width={640}
+        width={820}
         footer={
-          <Button type="primary" icon={<PrinterOutlined />} onClick={() => window.print()}>
-            Imprimer / Exporter en PDF
-          </Button>
+          detail && (
+            <Button
+              type="primary"
+              icon={<FilePdfOutlined />}
+              loading={downloadingId === detail.id}
+              onClick={() => handleDownloadPdf(detail)}
+            >
+              Télécharger le bulletin (PDF)
+            </Button>
+          )
         }
       >
         {detail && (
@@ -238,29 +310,54 @@ export default function ReportCardsPage() {
               pagination={false}
               size="small"
               columns={[
-                { title: "Matière", dataIndex: "subject_name" },
-                { title: "Coefficient", dataIndex: "coefficient", align: "right", width: 100 },
-                { title: "Moyenne / 20", dataIndex: "average", align: "right", render: (v) => (v ?? "—") },
+                { title: "Matières", dataIndex: "subject_name" },
+                { title: "Devoir", dataIndex: "devoir_average", align: "right", render: formatGrade },
+                { title: "Comp", dataIndex: "composition_average", align: "right", render: formatGrade },
+                { title: "Moy/20", dataIndex: "average", align: "right", render: formatGrade },
+                { title: "Coeff", dataIndex: "coefficient", align: "right" },
+                { title: "Moy Gen", dataIndex: "weighted_average", align: "right", render: formatGrade },
+                { title: "Appréciations", dataIndex: "appreciation", render: (v) => v ?? "—" },
               ]}
+              summary={() => (
+                <Table.Summary.Row>
+                  <Table.Summary.Cell index={0} colSpan={4}>
+                    <Typography.Text strong>TOTAL</Typography.Text>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={4} align="right">
+                    <Typography.Text strong>{detail.total_coefficient}</Typography.Text>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={5} align="right">
+                    <Typography.Text strong>{formatGrade(detail.total_weighted)}</Typography.Text>
+                  </Table.Summary.Cell>
+                  <Table.Summary.Cell index={6} />
+                </Table.Summary.Row>
+              )}
             />
 
             <div className="flex justify-between items-center mt-4 px-1">
               <div>
-                <Typography.Text strong>Moyenne générale</Typography.Text>
+                <Typography.Text strong>Moyenne</Typography.Text>
                 <br />
                 <Typography.Text type="secondary" className="text-xs">
-                  Pondérée par le coefficient de chaque matière
+                  Total Moy Gen ÷ total des coefficients
                 </Typography.Text>
               </div>
               <Typography.Title level={3} className="!mb-0">
-                {detail.overall_average ?? "—"} / 20
+                {formatGrade(detail.overall_average)} / 20
               </Typography.Title>
             </div>
 
-            <div className="text-right mt-1 px-1">
+            <div className="flex justify-end gap-6 mt-1 px-1">
               <Typography.Text type="secondary">
                 Rang : {detail.rank ? `${detail.rank} / ${detail.total_students}` : "Non classé"}
               </Typography.Text>
+              <Typography.Text type="secondary">Retards : {detail.late_count}</Typography.Text>
+              <Typography.Text type="secondary">Absences : {detail.absence_count}</Typography.Text>
+            </div>
+
+            <div className="flex justify-end gap-6 mt-1 px-1">
+              <Typography.Text type="secondary">Appréciation : {detail.work_appreciation ?? "—"}</Typography.Text>
+              <Typography.Text type="secondary">Distinction : {detail.distinction ?? "—"}</Typography.Text>
             </div>
           </div>
         )}

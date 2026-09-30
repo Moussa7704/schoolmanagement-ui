@@ -224,18 +224,34 @@ export interface ReportCard {
   validated_by: number | null;
 }
 
+/** Ligne du bulletin (calcul malien, voir constants/grading.js côté API). */
 export interface ReportCardSubjectAverage {
   subject_id: number;
   subject_name: string;
   coefficient: number;
+  /** Moyenne simple des devoirs, sur 20. */
+  devoir_average: number | null;
+  devoir_count: number;
+  /** Note de composition, sur 20. */
+  composition_average: number | null;
+  /** Moy/20 = (Devoir + Comp × 2) / 3, ou la seule note disponible. */
   average: number | null;
+  /** Moy Gen = Moy/20 × coefficient. */
+  weighted_average: number | null;
+  appreciation: string | null;
 }
 
 export interface ReportCardDetail extends ReportCard {
   subjects: ReportCardSubjectAverage[];
   overall_average: number | null;
+  total_coefficient: number;
+  total_weighted: number;
   rank: number | null;
   total_students: number;
+  late_count: number;
+  absence_count: number;
+  work_appreciation: string | null;
+  distinction: string | null;
 }
 
 export type AttendanceSession = "MORNING" | "AFTERNOON";
