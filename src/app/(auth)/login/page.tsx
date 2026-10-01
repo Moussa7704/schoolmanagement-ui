@@ -24,7 +24,9 @@ export default function LoginPage() {
     try {
       const res = await login(values.email, values.password);
       message.success(res.message);
-      router.push(`/verify-otp?user_id=${res.user_id}&email=${encodeURIComponent(res.email)}`);
+      // Le jeton de la connexion en cours est gardé par AuthContext (sessionStorage),
+      // pas dans l'adresse de la page.
+      router.push("/verify-otp");
     } catch (err) {
       message.error(getErrorMessage(err, "Échec de la connexion"));
     } finally {

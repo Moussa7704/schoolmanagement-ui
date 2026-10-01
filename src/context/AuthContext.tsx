@@ -7,10 +7,38 @@ import type { AuthUser } from "@/types/models";
 
 interface LoginResponse {
   message: string;
-  user_id: number;
+  /** Jeton temporaire de la connexion en cours, exigé pour vérifier ou renvoyer le code. */
+  otp_token: string;
   email: string;
   expires_at: string;
 }
+
+// Connexion en attente du code : gardée le temps de l'onglet (sessionStorage),
+// jamais dans l'adresse de la page (historique, partage de lien…).
+const OTP_CHALLENGE_KEY = "pendingOtpLogin";
+
+interface PendingOtpLogin {
+  token: string;
+  email: string;
+}
+
+export const getPendingOtpLogin = (): PendingOtpLogin | null => {
+  try {
+    const raw = sessionStorage.getItem(OTP_CHALLENGE_KEY);
+    return raw ? (JSON.parse(raw) as PendingOtpLogin) : null;
+  } catch {
+    return null;
+  }
+};
+
+const setPendingOtpLogin = (value: PendingOtpLogin | null) => {
+  try {
+    if (value) sessionStorage.setItem(OTP_CHALLENGE_KEY, JSON.stringify(value));
+    else sessionStorage.removeItem(OTP_CHALLENGE_KEY);
+  } catch {
+    // stockage indisponible (navigation privée stricte) : l'utilisateur devra se reconnecter
+  }
+};
 
 interface VerifyOtpResponse {
   message: string;
@@ -21,8 +49,8 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<LoginResponse>;
-  resendOtp: (userId: number) => Promise<void>;
-  verifyOtp: (userId: number, code: string) => Promise<AuthUser>;
+  resendOtp: () => Promise<void>;
+  verifyOtp: (code: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
   updateMe: (data: Partial<Pick<AuthUser, "first_name" | "last_name" | "phone" | "email">>) => Promise<AuthUser>;
   changeMyPassword: (currentPassword: string, newPassword: string) => Promise<void>;
@@ -71,15 +99,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = useCallback(async (email: string, password: string) => {
     const res = await api.post<LoginResponse>("/auth/login", { email, password });
+    setPendingOtpLogin({ token: res.data.otp_token, email: res.data.email });
     return res.data;
   }, []);
 
-  const resendOtp = useCallback(async (userId: number) => {
-    await api.post("/auth/resend-otp", { user_id: userId });
+  const resendOtp = useCallback(async () => {
+    await api.post("/auth/resend-otp", { otp_token: getPendingOtpLogin()?.token });
   }, []);
 
-  const verifyOtp = useCallback(async (userId: number, code: string) => {
-    const res = await api.post<VerifyOtpResponse>("/auth/verify-otp", { user_id: userId, code });
+  const verifyOtp = useCallback(async (code: string) => {
+    const res = await api.post<VerifyOtpResponse>("/auth/verify-otp", { otp_token: getPendingOtpLogin()?.token, code });
+    setPendingOtpLogin(null);
     setAccessToken(res.data.accessToken);
     const me = await fetchMe();
     setUser(me);
