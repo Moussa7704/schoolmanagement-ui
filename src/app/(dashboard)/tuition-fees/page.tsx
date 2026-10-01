@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Tag } from "antd";
+import { Button, Select, Tag, Typography } from "antd";
 import { DownloadOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 import { useMessage } from "@/hooks/useMessage";
@@ -10,12 +10,14 @@ import CrudFormDrawer from "@/components/common/CrudFormDrawer";
 import type { FormFieldSchema } from "@/components/common/form-field";
 import {
   academicYearsApi,
+  classesApi,
+  enrollmentsApi,
   studentsApi,
   tuitionFeesApi,
   type CreateTuitionFeePayload,
   type UpdateTuitionFeePayload,
 } from "@/api/resources";
-import type { AcademicYear, Student, TuitionFee, TuitionFeeStatus } from "@/types/models";
+import type { AcademicYear, Class, Enrollment, Student, TuitionFee, TuitionFeeStatus } from "@/types/models";
 import { usePermission } from "@/hooks/usePermission";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
@@ -26,6 +28,10 @@ const STATUS_LABELS: Record<TuitionFeeStatus, { label: string; color: string }> 
   PARTIAL: { label: "Partiel", color: "gold" },
   PENDING: { label: "En attente", color: "default" },
 };
+
+// Élèves réellement dans la classe : un redoublant y est inscrit comme les
+// autres, un transféré ou un retiré n'y est plus.
+const PRESENT_STATUSES: Enrollment["status"][] = ["ACTIVE", "REPEATING"];
 
 export default function TuitionFeesPage() {
   const message = useMessage();
@@ -39,6 +45,9 @@ export default function TuitionFeesPage() {
   const [editing, setEditing] = useState<TuitionFee | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [classEnrollments, setClassEnrollments] = useState<Enrollment[]>([]);
+  const [classId, setClassId] = useState<number | undefined>();
 
   const loadTuitionFees = async () => {
     setLoading(true);
@@ -56,20 +65,62 @@ export default function TuitionFeesPage() {
     loadTuitionFees();
     studentsApi.list().then(setStudents).catch(() => {});
     academicYearsApi.list().then(setAcademicYears).catch(() => {});
+    classesApi.list().then(setClasses).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadTuitionFees is a stable mount-time fetch, not meant to re-run when its own closure identity changes
   }, []);
 
-  const studentOptions = useMemo(
-    () => students.map((s) => ({ label: `${s.first_name} ${s.last_name}`, value: s.id })),
-    [students]
+  // Inscriptions de la classe choisie, rechargées à chaque changement de classe.
+  useEffect(() => {
+    if (!classId) return;
+    enrollmentsApi
+      .list({ class_id: classId })
+      .then(setClassEnrollments)
+      .catch((err) => message.error(getErrorMessage(err, "Échec du chargement des élèves de la classe")));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `message` is a stable App.useApp() instance
+  }, [classId]);
+
+  const selectedClass = classes.find((c) => c.id === classId);
+
+  const classOptions = useMemo(
+    () => classes.map((c) => ({ label: c.name, value: c.id })).sort((a, b) => a.label.localeCompare(b.label, "fr")),
+    [classes]
   );
+
+  // Formulaire : seulement les élèves actuellement dans la classe (actifs ou redoublants).
+  const studentOptions = useMemo(() => {
+    if (!classId) return [];
+    const enrolledIds = new Set(
+      classEnrollments
+        .filter((e) => e.class_id === classId && PRESENT_STATUSES.includes(e.status))
+        .map((e) => e.student_id)
+    );
+    return students
+      .filter((s) => enrolledIds.has(s.id))
+      .map((s) => ({ label: `${s.last_name} ${s.first_name}`, value: s.id }))
+      .sort((a, b) => a.label.localeCompare(b.label, "fr"));
+  }, [classEnrollments, classId, students]);
+
+  // L'année scolaire est celle de la classe choisie : une seule option, pré-remplie.
   const academicYearOptions = useMemo(
-    () => academicYears.map((a) => ({ label: a.label, value: a.id })),
-    [academicYears]
+    () =>
+      academicYears
+        .filter((a) => !selectedClass || a.id === selectedClass.academic_year_id)
+        .map((a) => ({ label: a.label, value: a.id })),
+    [academicYears, selectedClass]
   );
+
+  // Tableau : échéances des élèves inscrits dans la classe, pour l'année de la classe
+  // (y compris un élève transféré en cours d'année, qui peut encore devoir de l'argent).
+  const visibleTuitionFees = useMemo(() => {
+    if (!classId || !selectedClass) return tuitionFees;
+    const classStudentIds = new Set(classEnrollments.filter((e) => e.class_id === classId).map((e) => e.student_id));
+    return tuitionFees.filter(
+      (tf) => classStudentIds.has(tf.student_id) && tf.academic_year_id === selectedClass.academic_year_id
+    );
+  }, [classEnrollments, classId, selectedClass, tuitionFees]);
   const studentLabel = (id: number) => {
     const s = students.find((s) => s.id === id);
-    return s ? `${s.first_name} ${s.last_name}` : "—";
+    return s ? `${s.last_name} ${s.first_name}` : "—";
   };
   const academicYearLabel = (id: number) => academicYears.find((a) => a.id === id)?.label ?? "—";
 
@@ -169,19 +220,43 @@ export default function TuitionFeesPage() {
     <>
       <CrudTable<TuitionFee>
         title="Frais de scolarité"
-        data={tuitionFees}
+        data={visibleTuitionFees}
         loading={loading}
         rowKey={(r) => r.id}
         columns={columns}
         onCreate={openCreate}
-        canCreate={can(PERMISSIONS.TUITION_FEES_CREATE)}
+        // La création commence par le choix de la classe : sans elle, on ne sait
+        // pas quels élèves proposer.
+        canCreate={can(PERMISSIONS.TUITION_FEES_CREATE) && !!classId}
+        extraActions={
+          <>
+            <Select
+              showSearch
+              allowClear
+              optionFilterProp="label"
+              placeholder="Choisir une classe"
+              style={{ width: 220 }}
+              options={classOptions}
+              value={classId}
+              onChange={(value?: number) => {
+                setClassEnrollments([]);
+                setClassId(value);
+              }}
+            />
+            {!classId && can(PERMISSIONS.TUITION_FEES_CREATE) && (
+              <Typography.Text type="secondary">Choisissez une classe pour créer une échéance</Typography.Text>
+            )}
+          </>
+        }
       />
 
       <CrudFormDrawer<CreateTuitionFeePayload | UpdateTuitionFeePayload>
         open={drawerOpen}
         title={editing ? "Modifier l'échéance" : "Nouvelle échéance"}
         fields={fields}
-        initialValues={editing ?? undefined}
+        initialValues={
+          editing ?? (selectedClass ? { academic_year_id: selectedClass.academic_year_id } : undefined)
+        }
         submitting={submitting}
         onClose={() => setDrawerOpen(false)}
         onSubmit={handleSubmit}
