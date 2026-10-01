@@ -287,8 +287,12 @@ export default function AttendancesPage() {
         onSubmit={handleSubmit}
       />
 
+      {/* forceRender : le formulaire existe dès le chargement de la page, car
+          il est réinitialisé à chaque changement de classe, même si la fenêtre
+          n'a encore jamais été ouverte (sinon avertissement « useForm … not connected »). */}
       <Modal
         title="Statistiques de présence"
+        forceRender
         open={statsModalOpen}
         onCancel={() => setStatsModalOpen(false)}
         footer={

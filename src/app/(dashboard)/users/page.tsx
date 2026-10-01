@@ -164,8 +164,18 @@ export default function UsersPage() {
     { title: "Email", dataIndex: "email" },
     { title: "Téléphone", dataIndex: "phone", render: (v) => v || "—" },
     { title: "Rôle", key: "role", render: (_, record) => record.Role?.name },
+    // Seul le SUPER_ADMIN voit plusieurs écoles : pour les autres rôles, tous les
+    // utilisateurs listés sont de leur propre école, la colonne serait inutile.
     ...(isSuperAdmin
-      ? [{ title: "École", key: "school", render: (_: unknown, record: User) => record.School?.name ?? "—" }]
+      ? [
+          {
+            title: "École",
+            key: "school",
+            // Un SUPER_ADMIN n'est rattaché à aucune école : il gère toute la plateforme.
+            render: (_: unknown, record: User) =>
+              record.School?.name ?? (record.Role?.name === "SUPER_ADMIN" ? "Toutes (plateforme)" : "—"),
+          },
+        ]
       : []),
     {
       title: "Statut",
