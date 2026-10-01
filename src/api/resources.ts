@@ -5,7 +5,9 @@ import type {
   Assessment,
   AssessmentType,
   Attendance,
+  AttendanceSession,
   AttendanceStats,
+  AttendanceStatus,
   Class,
   DashboardStats,
   DayOfWeek,
@@ -457,7 +459,32 @@ export const attendancesApi = {
     const res = await api.get<ApiEnvelope<AttendanceStats>>("/attendances/stats", { params: { student_id, period_id } });
     return res.data.data;
   },
+  /** Appel d'une classe : toutes les présences d'une date et d'une séance en une fois. */
+  rollCall: async (payload: RollCallPayload): Promise<RollCallResult> => {
+    const res = await api.post<ApiEnvelope<RollCallResult>>("/attendances/roll-call", payload);
+    return res.data.data;
+  },
 };
+
+export interface RollCallEntry {
+  student_id: number;
+  status: AttendanceStatus;
+  justified?: boolean;
+  reason?: string;
+}
+
+export interface RollCallPayload {
+  class_id: number;
+  date: string;
+  session: AttendanceSession;
+  entries: RollCallEntry[];
+}
+
+export interface RollCallResult {
+  created: number;
+  updated: number;
+  attendances: Attendance[];
+}
 
 export interface CreateTuitionFeePayload {
   student_id: number;

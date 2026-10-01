@@ -22,6 +22,8 @@ import { usePermission } from "@/hooks/usePermission";
 import { useAuth } from "@/hooks/useAuth";
 import { PERMISSIONS } from "@/lib/permissions";
 import { getErrorMessage } from "@/lib/errors";
+import { CheckSquareOutlined } from "@ant-design/icons";
+import RollCallModal from "@/components/attendance/RollCallModal";
 
 const SESSION_OPTIONS = [
   { label: "Matin", value: "MORNING" },
@@ -53,6 +55,7 @@ export default function AttendancesPage() {
   const [editing, setEditing] = useState<Attendance | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [statsModalOpen, setStatsModalOpen] = useState(false);
+  const [rollCallOpen, setRollCallOpen] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
   const [stats, setStats] = useState<AttendanceStats | null>(null);
   const [statsForm] = Form.useForm<{ student_id: number; period_id: number }>();
@@ -118,6 +121,10 @@ export default function AttendancesPage() {
       .map((s) => ({ label: `${s.last_name} ${s.first_name}`, value: s.id }))
       .sort((a, b) => a.label.localeCompare(b.label, "fr"));
   }, [classId, enrollments, students]);
+
+  // Liste stable pour la feuille d'appel : une nouvelle liste à chaque rendu
+  // réinitialiserait la feuille et effacerait les saisies en cours.
+  const rollCallStudents = useMemo(() => studentOptions.map((s) => ({ id: s.value, label: s.label })), [studentOptions]);
 
   // Tableau : seulement les présences de la classe choisie.
   const visibleAttendances = useMemo(
@@ -264,6 +271,11 @@ export default function AttendancesPage() {
             {!classId && can(PERMISSIONS.ATTENDANCES_CREATE) && (
               <Typography.Text type="secondary">Choisissez une classe pour saisir des présences</Typography.Text>
             )}
+            {can(PERMISSIONS.ATTENDANCES_CREATE) && (
+              <Button type="primary" icon={<CheckSquareOutlined />} disabled={!classId} onClick={() => setRollCallOpen(true)}>
+                Faire l&apos;appel
+              </Button>
+            )}
             <Button
               disabled={!classId}
               onClick={() => {
@@ -276,6 +288,18 @@ export default function AttendancesPage() {
           </>
         }
       />
+
+      {classId && (
+        <RollCallModal
+          open={rollCallOpen}
+          classId={classId}
+          className={classLabel(classId)}
+          students={rollCallStudents}
+          attendances={attendances}
+          onClose={() => setRollCallOpen(false)}
+          onSaved={loadAttendances}
+        />
+      )}
 
       <CrudFormDrawer<CreateAttendancePayload | UpdateAttendancePayload>
         open={drawerOpen}
