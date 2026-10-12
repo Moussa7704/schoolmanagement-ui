@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Checkbox, DatePicker, Input, Modal, Radio, Select, Space, Table, Tag, Typography } from "antd";
+import { Button, Checkbox, DatePicker, Input, Modal, Popconfirm, Radio, Select, Space, Table, Tag, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import dayjs, { type Dayjs } from "dayjs";
 import { useMessage } from "@/hooks/useMessage";
@@ -27,6 +27,8 @@ interface RollCallModalProps {
   students: RollCallStudent[];
   /** Présences déjà chargées par la page : servent à reprendre un appel déjà fait. */
   attendances: Attendance[];
+  /** Autorise la suppression de l'appel d'un créneau (permission attendances.delete). */
+  canDelete?: boolean;
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }
@@ -35,6 +37,11 @@ const SESSION_OPTIONS = [
   { label: "Matin", value: "MORNING" },
   { label: "Après-midi", value: "AFTERNOON" },
 ];
+
+const SESSION_WORDING: Record<AttendanceSession, string> = {
+  MORNING: "du matin",
+  AFTERNOON: "de l'après-midi",
+};
 
 const STATUS_CHOICES: { label: string; value: AttendanceStatus }[] = [
   { label: "Présent", value: "PRESENT" },
@@ -45,23 +52,32 @@ const STATUS_CHOICES: { label: string; value: AttendanceStatus }[] = [
 // Appel d'une classe : tous les élèves sont « Présent » par défaut, l'enseignant
 // ne touche qu'aux absents et aux retardataires, puis enregistre tout d'un coup.
 // Si l'appel de cette date et de cette séance existe déjà, il est repris tel
-// quel pour être corrigé.
+// quel pour être corrigé. La séance n'est jamais devinée : l'enseignant doit
+// la choisir, sinon un appel du matin fait l'après-midi part dans la mauvaise.
 export default function RollCallModal({
   open,
   classId,
   className,
   students,
   attendances,
+  canDelete = false,
   onClose,
   onSaved,
 }: RollCallModalProps) {
   const message = useMessage();
   const [date, setDate] = useState<Dayjs>(dayjs());
-  const [session, setSession] = useState<AttendanceSession>(dayjs().hour() < 13 ? "MORNING" : "AFTERNOON");
+  const [session, setSession] = useState<AttendanceSession>();
   const [rows, setRows] = useState<Record<number, RollCallRow>>({});
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const dateKey = date.format("YYYY-MM-DD");
+
+  // À chaque ouverture, la séance est à choisir de nouveau.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- remise à zéro à l'ouverture
+    if (open) setSession(undefined);
+  }, [open]);
 
   // Présences déjà saisies pour ce créneau (classe + date + séance).
   const existing = useMemo(
@@ -101,6 +117,7 @@ export default function RollCallModal({
   }, [rows]);
 
   const handleSave = async () => {
+    if (!session) return;
     setSaving(true);
     try {
       const result = await attendancesApi.rollCall({
@@ -125,6 +142,20 @@ export default function RollCallModal({
       message.error(getErrorMessage(err, "Échec de l'enregistrement de l'appel"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!session) return;
+    setDeleting(true);
+    try {
+      const result = await attendancesApi.deleteRollCall({ class_id: classId, date: dateKey, session });
+      message.success(`Appel ${SESSION_WORDING[session]} supprimé : ${result.deleted} présence(s) retirée(s)`);
+      await onSaved();
+    } catch (err) {
+      message.error(getErrorMessage(err, "Échec de la suppression de l'appel"));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -184,10 +215,10 @@ export default function RollCallModal({
       open={open}
       onCancel={onClose}
       onOk={handleSave}
-      okText="Enregistrer l'appel"
+      okText={session ? `Enregistrer l'appel ${SESSION_WORDING[session]}` : "Enregistrer l'appel"}
       cancelText="Annuler"
       confirmLoading={saving}
-      okButtonProps={{ disabled: students.length === 0 }}
+      okButtonProps={{ disabled: students.length === 0 || !session || deleting }}
       width={860}
       destroyOnHidden
     >
@@ -199,9 +230,36 @@ export default function RollCallModal({
           disabledDate={(d) => d.isAfter(dayjs(), "day")}
           onChange={(value) => value && setDate(value)}
         />
-        <Select<AttendanceSession> value={session} options={SESSION_OPTIONS} style={{ width: 140 }} onChange={setSession} />
+        <Select<AttendanceSession>
+          value={session}
+          options={SESSION_OPTIONS}
+          placeholder="Choisir la séance"
+          status={session ? undefined : "warning"}
+          style={{ width: 160 }}
+          onChange={setSession}
+        />
         {existing.size > 0 && <Tag color="blue">Appel déjà fait pour ce créneau : modification</Tag>}
+        {session && existing.size > 0 && canDelete && (
+          <Popconfirm
+            title={`Supprimer l'appel ${SESSION_WORDING[session]} du ${date.format("DD/MM/YYYY")} ?`}
+            description="Toutes les présences de ce créneau seront retirées."
+            okText="Supprimer"
+            okButtonProps={{ danger: true }}
+            cancelText="Annuler"
+            onConfirm={handleDelete}
+          >
+            <Button danger size="small" loading={deleting}>
+              Supprimer cet appel
+            </Button>
+          </Popconfirm>
+        )}
       </Space>
+
+      {!session && (
+        <Typography.Text type="warning" className="mb-2 block">
+          Choisissez la séance (matin ou après-midi) avant d&apos;enregistrer l&apos;appel.
+        </Typography.Text>
+      )}
 
       <div className="mb-2">
         <Space size="large">

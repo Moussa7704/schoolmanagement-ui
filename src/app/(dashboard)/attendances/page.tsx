@@ -296,6 +296,7 @@ export default function AttendancesPage() {
           className={classLabel(classId)}
           students={rollCallStudents}
           attendances={attendances}
+          canDelete={can(PERMISSIONS.ATTENDANCES_DELETE)}
           onClose={() => setRollCallOpen(false)}
           onSaved={loadAttendances}
         />

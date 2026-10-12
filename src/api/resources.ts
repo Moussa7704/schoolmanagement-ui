@@ -464,7 +464,18 @@ export const attendancesApi = {
     const res = await api.post<ApiEnvelope<RollCallResult>>("/attendances/roll-call", payload);
     return res.data.data;
   },
+  /** Supprime l'appel d'un créneau (classe + date + séance) fait par erreur. */
+  deleteRollCall: async (slot: RollCallSlot): Promise<{ deleted: number }> => {
+    const res = await api.delete<ApiEnvelope<{ deleted: number }>>("/attendances/roll-call", { params: slot });
+    return res.data.data;
+  },
 };
+
+export interface RollCallSlot {
+  class_id: number;
+  date: string;
+  session: AttendanceSession;
+}
 
 export interface RollCallEntry {
   student_id: number;
