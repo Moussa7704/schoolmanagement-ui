@@ -215,11 +215,16 @@ export interface Grade {
 
 export type ReportCardStatus = "DRAFT" | "VALIDATED";
 
+export type ReportCardType = "TRIMESTER" | "ANNUAL";
+
 export interface ReportCard {
   id: number;
   student_id: number;
   class_id: number;
-  period_id: number;
+  /** Vide pour un bulletin annuel. */
+  period_id: number | null;
+  academic_year_id: number;
+  type: ReportCardType;
   status: ReportCardStatus;
   generated_at: string | null;
   validated_at: string | null;
@@ -232,19 +237,30 @@ export interface ReportCardSubjectAverage {
   subject_name: string;
   coefficient: number;
   /** Moyenne simple des devoirs, sur 20. */
-  devoir_average: number | null;
-  devoir_count: number;
-  /** Note de composition, sur 20. */
-  composition_average: number | null;
-  /** Moy/20 = (Devoir + Comp × 2) / 3, ou la seule note disponible. */
+  devoir_average?: number | null;
+  devoir_count?: number;
+  /** Note de composition, sur 20 (absente sur un bulletin annuel). */
+  composition_average?: number | null;
+  /** Moy/20 = (Devoir + Comp × 2) / 3 ; vide s'il manque la Comp ou les devoirs.
+   *  Bulletin annuel : moyenne des trimestres où la matière est notée. */
   average: number | null;
+  /** Bulletin annuel : Moy/20 de chaque trimestre, dans l'ordre de `terms`. */
+  term_averages?: (number | null)[];
   /** Moy Gen = Moy/20 × coefficient. */
   weighted_average: number | null;
   appreciation: string | null;
 }
 
+export interface ReportCardTermAverage {
+  period_id: number;
+  label: string;
+  overall_average: number | null;
+}
+
 export interface ReportCardDetail extends ReportCard {
   subjects: ReportCardSubjectAverage[];
+  /** Bulletin annuel : moyenne générale de chaque trimestre. */
+  terms?: ReportCardTermAverage[];
   overall_average: number | null;
   total_coefficient: number;
   total_weighted: number;

@@ -20,6 +20,7 @@ import type {
   Permission,
   ReportCard,
   ReportCardDetail,
+  ReportCardType,
   Role,
   Schedule,
   School,
@@ -399,9 +400,12 @@ export interface CreateGradePayload {
 
 export const gradesApi = createResourceApi<Grade, CreateGradePayload, { score: number }>("/grades");
 
+/** Trimestriel : period_id. Annuel (type ANNUAL) : academic_year_id. */
 export interface CreateReportCardPayload {
   student_id: number;
-  period_id: number;
+  type?: ReportCardType;
+  period_id?: number;
+  academic_year_id?: number;
 }
 
 // Pas de update : le contenu se recalcule à la lecture (voir getDetail), seul le statut change via validate.
@@ -409,6 +413,7 @@ export interface ReportCardListFilters {
   class_id?: number;
   period_id?: number;
   student_id?: number;
+  type?: ReportCardType;
 }
 
 export const reportCardsApi = {
@@ -435,9 +440,10 @@ export const reportCardsApi = {
   downloadPdf: async (id: number, filename: string): Promise<void> => {
     await downloadFile(`/report-cards/${id}/pdf`, filename);
   },
-  /** Tous les bulletins d'une classe pour une période, deux par feuille A4. */
-  downloadClassPdf: async (classId: number, periodId: number, filename: string): Promise<void> => {
-    await downloadFile(`/report-cards/class-pdf?class_id=${classId}&period_id=${periodId}`, filename);
+  /** Tous les bulletins d'une classe pour une période (ou tous ses bulletins annuels), deux par feuille A4. */
+  downloadClassPdf: async (classId: number, periodId: number | null, filename: string): Promise<void> => {
+    const query = periodId ? `period_id=${periodId}` : "type=ANNUAL";
+    await downloadFile(`/report-cards/class-pdf?class_id=${classId}&${query}`, filename);
   },
 };
 
